@@ -1,4 +1,4 @@
-import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, generateId } from '../db.js';
+import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId } from '../db.js';
 import { getToday, formatDate, formatTime, getCurrentScheduleBlock, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
@@ -9,12 +9,13 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection] = await Promise.all([
+  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan] = await Promise.all([
     getSchedule(),
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
     getReflectionByDate(today),
+    getPlanByDate(today),
   ]);
 
   const currentBlock = getCurrentScheduleBlock(schedule);
@@ -101,6 +102,40 @@ export async function renderToday(container) {
     `;
   }).join('');
 
+  let planSection = '';
+  if (todayPlan && todayPlan.activities.length > 0) {
+    const doneCount = todayPlan.activities.filter(a => a.status === 'done').length;
+    const totalCount = todayPlan.activities.length;
+    planSection = `
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:flex-end">
+        <span class="section-title">Today's Plan</span>
+        <span style="font-size:0.75rem;color:var(--text-2);margin-right:16px">${doneCount}/${totalCount} done</span>
+      </div>
+      <div class="checkpoints-section" id="today-plan-card" style="cursor:pointer;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        ${todayPlan.activities.slice(0, 3).map(act => `
+          <div style="display:flex;align-items:center;gap:10px;opacity:${act.status !== 'pending' ? '0.5' : '1'}">
+            <div style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:${act.status === 'done' ? 'var(--text)' : 'transparent'};border-color:${act.status === 'done' ? 'var(--text)' : 'var(--border)'}">
+              ${act.status === 'done' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
+              ${act.status === 'skipped' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>` : ''}
+            </div>
+            <div style="font-size:0.875rem;${act.status === 'done' ? 'text-decoration:line-through' : ''}">${act.label}</div>
+          </div>
+        `).join('')}
+        ${todayPlan.activities.length > 3 ? `<div style="font-size:0.75rem;color:var(--text-3);margin-left:26px;margin-top:2px">+ ${todayPlan.activities.length - 3} more</div>` : ''}
+      </div>
+    `;
+  } else {
+    planSection = `
+      <div class="section-header">
+        <span class="section-title">Today's Plan</span>
+      </div>
+      <div class="checkpoints-section" id="today-plan-card" style="cursor:pointer;padding:16px;text-align:center">
+        <div style="font-size:0.875rem;color:var(--text-2);margin-bottom:4px">No activities planned</div>
+        <div style="font-size:0.8125rem;color:var(--primary);font-weight:500">Tap to create plan</div>
+      </div>
+    `;
+  }
+
   container.innerHTML = `
     <div class="view-enter">
       <div class="today-hero">
@@ -126,7 +161,9 @@ export async function renderToday(container) {
 
       ${saturdayBanner}
 
-      <div class="section-header">
+      ${planSection}
+
+      <div class="section-header" style="margin-top:8px">
         <span class="section-title">Checkpoints</span>
       </div>
       <div class="checkpoints-section">${checkpointRows}</div>
@@ -148,6 +185,7 @@ export async function renderToday(container) {
   container.querySelector('#fab-log')?.addEventListener('click', () => navigate('/log'));
   container.querySelector('#reflect-prompt-btn')?.addEventListener('click', () => navigate('/reflect'));
   container.querySelector('#plan-banner')?.addEventListener('click', () => navigate('/plan'));
+  container.querySelector('#today-plan-card')?.addEventListener('click', () => navigate('/plan'));
 
   container.querySelectorAll('.checkpoint-row').forEach(row => {
     row.addEventListener('click', () => {
