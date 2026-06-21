@@ -78,7 +78,7 @@ export async function renderInsights(container) {
       const avgCraving = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.craving, 0) / dayLogs.length : null;
       const avgEnergy = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.energy, 0) / dayLogs.length : null;
       const peakCraving = ref?.peak_craving ?? null;
-      return { date, avgUrge, avgEnergy, peakUrge, slipped: slippedDates.has(date) };
+      return { date, avgCraving, avgEnergy, peakCraving, slipped: slippedDates.has(date) };
     });
 
     const last14 = dayData.slice(-14);
