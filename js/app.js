@@ -40,7 +40,7 @@ const ROUTES = {
   '/log': { render: (c, p) => renderLog(c, p), navId: 'nav-log' },
   '/reflect': { render: renderReflect, navId: 'nav-today' },
   '/schedule': { render: renderSchedule, navId: 'nav-settings' },
-  '/plan': { render: (c, p) => renderPlan(c, p), navId: 'nav-today' },
+  '/plan': { render: (c, p) => renderPlan(c, p), navId: 'nav-plan' },
   '/insights': { render: renderInsights, navId: 'nav-insights' },
   '/settings': { render: renderSettings, navId: 'nav-settings' },
 };
