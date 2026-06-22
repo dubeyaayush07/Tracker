@@ -60,13 +60,13 @@ export async function renderReflect(container) {
           </div>
 
           <div class="form-group">
-            <label class="form-label">What triggered the strongest craving? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
+            <label class="form-label">What triggered the strongest urge? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
             <div class="tag-group">${triggerTags}</div>
           </div>
 
           <div class="form-group">
             <label class="form-label">Any observations? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
-            <textarea id="reflect-notes" placeholder="Gym helped a lot today. Craving peaked around 9 PM. Had extra free time after dinner…" rows="4">${existing?.observations || ''}</textarea>
+            <textarea id="reflect-notes" placeholder="Gym helped a lot today. Urge peaked around 9 PM. Had extra free time after dinner…" rows="4">${existing?.observations || ''}</textarea>
           </div>
 
           <button class="btn btn-primary" id="save-reflect-btn">

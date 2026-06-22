@@ -43,7 +43,7 @@ export async function renderLog(container, params = {}) {
               <div style="font-size:1.375rem;font-weight:700;letter-spacing:-0.02em">Quick Log</div>
               <div style="font-size:0.8125rem;color:var(--text-2);margin-top:2px">${formatTime()}</div>
             </div>
-            <span class="badge badge-primary" style="font-size:0.75rem">${isCravingMoment ? 'Craving Moment' : initialCp.label}</span>
+            <span class="badge badge-primary" style="font-size:0.75rem">${isCravingMoment ? 'Urge Spike' : checkpoints.find(c => c.id === selectedCp)?.label || ''}</span>
           </div>
         </div>
 
@@ -164,8 +164,8 @@ export async function renderLog(container, params = {}) {
         id: generateId(),
         timestamp: new Date().toISOString(),
         date: getToday(),
-        type: isCravingMoment ? 'craving_moment' : 'checkpoint',
-        checkpoint: isCravingMoment ? 'craving_moment' : selectedCp,
+        type: isCravingMoment ? 'urge_moment' : 'checkpoint',
+        checkpoint: isCravingMoment ? 'urge_moment' : selectedCp,
         energy,
         craving,
         mood,

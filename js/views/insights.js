@@ -77,7 +77,7 @@ export async function renderInsights(container) {
       const ref = reflections.find(r => r.date === date);
       const avgCraving = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.craving, 0) / dayLogs.length : null;
       const avgEnergy = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.energy, 0) / dayLogs.length : null;
-      const peakCraving = ref?.peak_craving ?? null;
+      const peakCraving = ref?.peak_urge ?? null;
       return { date, avgCraving, avgEnergy, peakCraving, slipped: slippedDates.has(date) };
     });
 
@@ -265,7 +265,7 @@ export async function renderInsights(container) {
         const avgC = dayLogs.length ? (dayLogs.reduce((s,l) => s+l.craving, 0) / dayLogs.length).toFixed(0) : '—';
         const avgE = dayLogs.length ? (dayLogs.reduce((s,l) => s+l.energy, 0) / dayLogs.length).toFixed(0) : '—';
         const peakC = ref?.peak_urge ?? '—';
-        const slipped = ref ? (ref.slipped ? '✓' : '✗') : '—';
+        const slipped = ref ? (ref.slipped ? '✗' : '✓') : '—';
         const slippedColor = ref ? (ref.slipped ? 'var(--danger)' : 'var(--success)') : 'var(--text-3)';
 
         return `
@@ -277,7 +277,7 @@ export async function renderInsights(container) {
             <div class="day-log-stats">
               <div class="day-stat">
                 <div class="day-stat-val" style="color:${avgC !== '—' && parseInt(avgC) >= 7 ? 'var(--danger)' : parseInt(avgC) >= 4 ? 'var(--warning)' : 'var(--text)'}">${avgC}</div>
-                <div class="day-stat-key">Craving</div>
+                <div class="day-stat-key">Urge</div>
               </div>
               <div class="day-stat">
                 <div class="day-stat-val">${avgE}</div>
@@ -303,10 +303,6 @@ export async function renderInsights(container) {
 
     return `
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:12px 16px;overflow:hidden">
-        <div style="display:flex;padding:10px 16px;border-bottom:1px solid var(--border)">
-          <div style="min-width:70px;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em">Date</div>
-          <div style="flex:1;font-size:0.7rem;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em">Craving · Energy · Peak · THC</div>
-        </div>
         ${items}
       </div>
     `;
