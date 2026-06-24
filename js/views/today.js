@@ -1,4 +1,4 @@
-import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId } from '../db.js';
+import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting } from '../db.js';
 import { getToday, formatDate, formatTime, getCurrentScheduleBlock, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
@@ -9,13 +9,14 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan] = await Promise.all([
+  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive] = await Promise.all([
     getSchedule(),
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
     getReflectionByDate(today),
     getPlanByDate(today),
+    getSetting('lockdown_active')
   ]);
 
   const currentBlock = getCurrentScheduleBlock(schedule);
@@ -38,6 +39,25 @@ export async function renderToday(container) {
       </div>
     </div>
   ` : '';
+
+  const lockdownBtn = lockdownActive ? `
+    <div class="banner banner-danger" id="lockdown-btn" style="cursor:pointer;background:var(--danger);color:#fff">
+      <div style="display:flex;align-items:center;gap:12px">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <div>
+          <div style="font-weight:700;font-size:0.9375rem">LOCKDOWN ACTIVE</div>
+          <div style="font-size:0.8125rem;opacity:0.9;margin-top:2px">Tap to disable</div>
+        </div>
+      </div>
+    </div>
+  ` : `
+    <div class="banner banner-secondary" id="lockdown-btn" style="cursor:pointer;border:1px solid var(--danger-dim);">
+      <div style="display:flex;align-items:center;gap:12px;color:var(--danger)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div style="font-weight:600;font-size:0.875rem">Activate Lockdown</div>
+      </div>
+    </div>
+  `;
 
   const reflectPrompt = !reflection ? `
     <div class="reflect-prompt" id="reflect-prompt-btn">
@@ -160,6 +180,7 @@ export async function renderToday(container) {
       ` : ''}
 
       ${saturdayBanner}
+      ${lockdownBtn}
 
       ${planSection}
 
@@ -192,5 +213,45 @@ export async function renderToday(container) {
       const cpId = row.dataset.cp;
       navigate(`/log?cp=${cpId}`);
     });
+  });
+
+  // Lockdown toggle logic
+  container.querySelector('#lockdown-btn')?.addEventListener('click', async () => {
+    const currentState = await getSetting('lockdown_active');
+    const newState = !currentState;
+    
+    await setSetting('lockdown_active', newState);
+    
+    if (newState) {
+      if ('Notification' in window) {
+        let perm = Notification.permission;
+        if (perm !== 'granted' && perm !== 'denied') {
+          perm = await Notification.requestPermission();
+        }
+        if (perm === 'granted') {
+          const reg = await navigator.serviceWorker.ready;
+          reg.showNotification('🚨 Lockdown Active', {
+            body: 'No major decisions. Do not jump to conclusions. Wait until you are regulated.',
+            icon: './icon-192.png',
+            requireInteraction: true,
+            tag: 'lockdown-notification',
+            vibrate: [200, 100, 200]
+          });
+        } else {
+          showToast('Notifications disabled in browser');
+        }
+      } else {
+        showToast('Notifications not supported');
+      }
+    } else {
+      if ('Notification' in window) {
+        const reg = await navigator.serviceWorker.ready;
+        const notifications = await reg.getNotifications({ tag: 'lockdown-notification' });
+        notifications.forEach(n => n.close());
+      }
+    }
+    
+    // Re-render
+    renderToday(container);
   });
 }
