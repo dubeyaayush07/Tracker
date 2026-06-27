@@ -58,9 +58,9 @@ export async function renderLog(container, params = {}) {
           ${makeSlider('mood', 'Mood', 1, 10, 5, 'Very low', 'Very positive')}
 
           <div class="form-group">
-            <label class="form-label">Following the plan?</label>
+            <label class="form-label">Following the plan? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
             <div class="segment-group" id="adherence-group">
-              <button class="segment-btn active" data-val="yes">Yes</button>
+              <button class="segment-btn" data-val="yes">Yes</button>
               <button class="segment-btn" data-val="mostly">Mostly</button>
               <button class="segment-btn" data-val="no">No</button>
             </div>
@@ -134,15 +134,23 @@ export async function renderLog(container, params = {}) {
 
     // Adherence segments
     const adherenceGroup = container.querySelector('#adherence-group');
-    let currentAdherence = 'yes';
+    let currentAdherence = null;
     if (adherenceGroup) {
       adherenceGroup.querySelectorAll('.segment-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-          adherenceGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentAdherence = btn.dataset.val;
-          const devSection = container.querySelector('#deviation-section');
-          if (devSection) devSection.style.display = currentAdherence === 'no' ? '' : 'none';
+          // Toggle off if clicking the already active button
+          if (btn.classList.contains('active')) {
+            btn.classList.remove('active');
+            currentAdherence = null;
+            const devSection = container.querySelector('#deviation-section');
+            if (devSection) devSection.style.display = 'none';
+          } else {
+            adherenceGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentAdherence = btn.dataset.val;
+            const devSection = container.querySelector('#deviation-section');
+            if (devSection) devSection.style.display = currentAdherence === 'no' ? '' : 'none';
+          }
         });
       });
     }
@@ -158,7 +166,7 @@ export async function renderLog(container, params = {}) {
       const sleepQuality = parseInt(container.querySelector('#range-sleep-quality')?.value || 3);
 
       const adherenceBtn = container.querySelector('#adherence-group .segment-btn.active');
-      const adherence = adherenceBtn ? adherenceBtn.dataset.val : 'yes';
+      const adherence = adherenceBtn ? adherenceBtn.dataset.val : null;
 
       const entry = {
         id: generateId(),
