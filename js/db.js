@@ -1,5 +1,5 @@
 const DB_NAME = 'tracker-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let _db = null;
 
@@ -24,6 +24,10 @@ export async function openDB() {
       }
       if (!db.objectStoreNames.contains('settings')) {
         db.createObjectStore('settings', { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains('weekly_goals')) {
+        const wg = db.createObjectStore('weekly_goals', { keyPath: 'id' });
+        wg.createIndex('week_start', 'week_start', { unique: true });
       }
     };
     req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
@@ -122,6 +126,16 @@ export async function getPlanByDate(date) {
   return all.find(p => p.date === date) || null;
 }
 
+// Weekly Goals helper
+export async function getWeeklyGoalsByWeek(weekStart) {
+  const all = await dbGetByIndex('weekly_goals', 'week_start', weekStart);
+  return all.length > 0 ? all[0] : null;
+}
+
+export async function saveWeeklyGoals(entry) {
+  await dbPut('weekly_goals', entry);
+}
+
 // Clear-day streak (no slip)
 export async function getClearDays() {
   const reflections = await dbGetAll('reflections');
@@ -146,10 +160,11 @@ export async function getClearDays() {
 
 // Full export
 export async function exportAllData() {
-  const [logs, reflections, plans] = await Promise.all([
+  const [logs, reflections, plans, weekly_goals] = await Promise.all([
     dbGetAll('logs'),
     dbGetAll('reflections'),
     dbGetAll('plans'),
+    dbGetAll('weekly_goals'),
   ]);
   const schedule = await getSetting('schedule');
   const checkpoints = await getSetting('checkpoints');
@@ -159,16 +174,18 @@ export async function exportAllData() {
     logs,
     reflections,
     plans,
+    weekly_goals,
     settings: { schedule, checkpoints }
   };
 }
 
 // Full import
 export async function importAllData(data) {
-  await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans')]);
+  await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans'), dbClear('weekly_goals')]);
   for (const item of (data.logs || [])) await dbPut('logs', item);
   for (const item of (data.reflections || [])) await dbPut('reflections', item);
   for (const item of (data.plans || [])) await dbPut('plans', item);
+  for (const item of (data.weekly_goals || [])) await dbPut('weekly_goals', item);
   if (data.settings?.schedule) await setSetting('schedule', data.settings.schedule);
   if (data.settings?.checkpoints) await setSetting('checkpoints', data.settings.checkpoints);
 }

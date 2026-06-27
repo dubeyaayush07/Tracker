@@ -86,6 +86,14 @@ export function getNextSunday() {
   return dateKey(d);
 }
 
+export function getNextMonday() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = day === 0 ? 1 : 8 - day;
+  d.setDate(d.getDate() + diff);
+  return dateKey(d);
+}
+
 export function getTomorrow() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -127,4 +135,13 @@ export function daysAgo(dateStr) {
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
   return `${diff}d ago`;
+}
+
+export function getWeekStart(dateStr) {
+  const d = parseDateKey(dateStr);
+  const day = d.getDay();
+  // day === 0 is Sunday. We want Monday as the start of the week.
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return dateKey(monday);
 }
