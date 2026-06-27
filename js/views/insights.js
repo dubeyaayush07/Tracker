@@ -74,9 +74,11 @@ export async function renderInsights(container) {
     // Build avg craving/energy per day
     const dayData = days.map(date => {
       const dayLogs = logs.filter(l => l.date === date);
+      const cravingLogs = dayLogs.filter(l => l.craving !== null);
+      const energyLogs = dayLogs.filter(l => l.energy !== null);
       const ref = reflections.find(r => r.date === date);
-      const avgCraving = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.craving, 0) / dayLogs.length : null;
-      const avgEnergy = dayLogs.length > 0 ? dayLogs.reduce((s, l) => s + l.energy, 0) / dayLogs.length : null;
+      const avgCraving = cravingLogs.length > 0 ? cravingLogs.reduce((s, l) => s + l.craving, 0) / cravingLogs.length : null;
+      const avgEnergy = energyLogs.length > 0 ? energyLogs.reduce((s, l) => s + l.energy, 0) / energyLogs.length : null;
       const peakCraving = ref?.peak_urge ?? null;
       return { date, avgCraving, avgEnergy, peakCraving, slipped: slippedDates.has(date) };
     });
@@ -87,12 +89,12 @@ export async function renderInsights(container) {
     const energyData = last14.map(d => d.avgEnergy);
 
     // Summary stats
-    const allUrges = logs.map(l => l.craving);
+    const allUrges = logs.filter(l => l.craving !== null).map(l => l.craving);
     const avgUrgeAll = allUrges.length ? (allUrges.reduce((a,b) => a+b, 0) / allUrges.length).toFixed(1) : '—';
     const last7Urges = logs.filter(l => {
       const d = new Date(l.date);
       const week = new Date(); week.setDate(week.getDate() - 7);
-      return d >= week;
+      return d >= week && l.craving !== null;
     }).map(l => l.craving);
     const avgUrgeWeek = last7Urges.length ? (last7Urges.reduce((a,b) => a+b, 0) / last7Urges.length).toFixed(1) : '—';
 
@@ -161,31 +163,35 @@ export async function renderInsights(container) {
   function renderPatterns() {
     // Average craving by checkpoint
     const cpAvg = checkpoints.map(cp => {
-      const cpLogs = logs.filter(l => l.checkpoint === cp.id);
+      const cpLogs = logs.filter(l => l.checkpoint === cp.id && l.craving !== null);
       const avg = cpLogs.length > 0 ? cpLogs.reduce((s, l) => s + l.craving, 0) / cpLogs.length : 0;
       return { label: cp.label, avg: parseFloat(avg.toFixed(1)), count: cpLogs.length };
     });
 
     // Average urge by day of week
     const dowAvg = [0,1,2,3,4,5,6].map(dow => {
-      const dowLogs = logs.filter(l => new Date(l.date + 'T12:00:00').getDay() === dow);
+      const dowLogs = logs.filter(l => new Date(l.date + 'T12:00:00').getDay() === dow && l.craving !== null);
       const avg = dowLogs.length > 0 ? dowLogs.reduce((s, l) => s + l.craving, 0) / dowLogs.length : 0;
       return { label: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow], avg: parseFloat(avg.toFixed(1)) };
     });
 
     // Gym effect: compare craving logs on days with gym vs without
-    const gymLogs = logs.filter(l => l.checkpoint === 'after_gym');
+    const gymLogs = logs.filter(l => l.checkpoint === 'after_gym' && l.craving !== null);
     const afterGymAvg = gymLogs.length 
       ? (gymLogs.reduce((s, l) => s + l.craving, 0) / gymLogs.length).toFixed(1) 
       : null;
-    const beforeGymLogs = logs.filter(l => l.checkpoint === 'end_of_work');
+    const beforeGymLogs = logs.filter(l => l.checkpoint === 'end_of_work' && l.craving !== null);
     const beforeGymAvg = beforeGymLogs.length
       ? (beforeGymLogs.reduce((s, l) => s + l.craving, 0) / beforeGymLogs.length).toFixed(1)
       : null;
 
     // Adherence effect
     const adherenceLogs = { yes: [], mostly: [], no: [] };
-    logs.forEach(l => { if (adherenceLogs[l.adherence]) adherenceLogs[l.adherence].push(l.craving); });
+    logs.forEach(l => { 
+      if (l.craving !== null && adherenceLogs[l.adherence]) {
+        adherenceLogs[l.adherence].push(l.craving); 
+      }
+    });
     const adherenceAvg = Object.fromEntries(
       Object.entries(adherenceLogs).map(([k, v]) => [k, v.length ? (v.reduce((a,b) => a+b, 0) / v.length).toFixed(1) : '—'])
     );

@@ -53,9 +53,15 @@ export async function renderLog(container, params = {}) {
         </div>
 
         <div class="log-form-section">
-          ${makeSlider('energy', 'Energy', 1, 10, 5, 'Exhausted', 'Energetic')}
-          ${makeSlider('craving', 'Urge', 1, 10, 1, 'None', 'Overwhelming')}
-          ${makeSlider('mood', 'Mood', 1, 10, 5, 'Very low', 'Very positive')}
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:0.875rem;cursor:pointer;color:var(--text-1)">
+            <input type="checkbox" id="include-stats" checked>
+            Include energy, urge, and mood stats
+          </label>
+          <div id="stats-section" style="transition:opacity 0.2s">
+            ${makeSlider('energy', 'Energy', 1, 10, 5, 'Exhausted', 'Energetic')}
+            ${makeSlider('craving', 'Urge', 1, 10, 1, 'None', 'Overwhelming')}
+            ${makeSlider('mood', 'Mood', 1, 10, 5, 'Very low', 'Very positive')}
+          </div>
 
           <div class="form-group">
             <label class="form-label">Following the plan? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
@@ -117,6 +123,16 @@ export async function renderLog(container, params = {}) {
       }
     });
 
+    // Optional stats toggle
+    const includeStats = container.querySelector('#include-stats');
+    const statsSection = container.querySelector('#stats-section');
+    if (includeStats && statsSection) {
+      includeStats.addEventListener('change', (e) => {
+        statsSection.style.opacity = e.target.checked ? '1' : '0.4';
+        statsSection.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+      });
+    }
+
     // Checkpoint chips
     container.querySelectorAll('.cp-chip[data-cp]').forEach(chip => {
       chip.addEventListener('click', () => {
@@ -157,9 +173,10 @@ export async function renderLog(container, params = {}) {
 
     // Save
     container.querySelector('#save-log-btn')?.addEventListener('click', async () => {
-      const energy = parseInt(container.querySelector('#range-energy')?.value || 5);
-      const craving = parseInt(container.querySelector('#range-craving')?.value || 1);
-      const mood = parseInt(container.querySelector('#range-mood')?.value || 5);
+      const include = container.querySelector('#include-stats')?.checked !== false;
+      const energy = include ? parseInt(container.querySelector('#range-energy')?.value || 5) : null;
+      const craving = include ? parseInt(container.querySelector('#range-craving')?.value || 1) : null;
+      const mood = include ? parseInt(container.querySelector('#range-mood')?.value || 5) : null;
       const notes = container.querySelector('#log-notes')?.value?.trim() || '';
       const deviation = container.querySelector('#deviation-reason')?.value || '';
       const sleepHours = parseFloat(container.querySelector('#sleep-hours')?.value || 0) || null;
