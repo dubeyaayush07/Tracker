@@ -403,7 +403,7 @@ export async function renderInsights(container) {
       const cpCanvas = container.querySelector('#chart-cp-bar');
       if (cpCanvas) {
         const cpData = checkpoints.map(cp => {
-          const cpLogs = logs.filter(l => l.checkpoint === cp.id);
+          const cpLogs = logs.filter(l => l.checkpoint === cp.id && l.craving !== null);
           return cpLogs.length ? parseFloat((cpLogs.reduce((s,l) => s+l.craving, 0) / cpLogs.length).toFixed(1)) : 0;
         });
 
