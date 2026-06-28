@@ -347,7 +347,8 @@ export async function renderInsights(container) {
       if (cravingCanvas) {
         const urgeData = last14.map(d => {
           const dayLogs = logs.filter(l => l.date === d);
-          return dayLogs.length ? parseFloat((dayLogs.reduce((s,l) => s+l.craving, 0) / dayLogs.length).toFixed(1)) : null;
+          const cravingLogs = dayLogs.filter(l => l.craving !== null);
+          return cravingLogs.length ? parseFloat((cravingLogs.reduce((s,l) => s+l.craving, 0) / cravingLogs.length).toFixed(1)) : null;
         });
 
         chartInstances['craving'] = new Chart(cravingCanvas, {
@@ -373,7 +374,8 @@ export async function renderInsights(container) {
       if (energyCanvas) {
         const energyData = last14.map(d => {
           const dayLogs = logs.filter(l => l.date === d);
-          return dayLogs.length ? parseFloat((dayLogs.reduce((s,l) => s+l.energy, 0) / dayLogs.length).toFixed(1)) : null;
+          const energyLogs = dayLogs.filter(l => l.energy !== null);
+          return energyLogs.length ? parseFloat((energyLogs.reduce((s,l) => s+l.energy, 0) / energyLogs.length).toFixed(1)) : null;
         });
 
         chartInstances['energy'] = new Chart(energyCanvas, {
