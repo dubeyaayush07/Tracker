@@ -27,6 +27,7 @@ export async function renderLog(container, params = {}) {
 
   let selectedCp = initialCp.id;
   let isCravingMoment = false;
+  let selectedNegotiation = null;
 
   function buildForm() {
     const isMorning = selectedCp === 'morning';
@@ -82,6 +83,17 @@ export async function renderLog(container, params = {}) {
               <option value="chose">Chose to deviate (that's okay)</option>
             </select>
           </div>
+
+          ${isCravingMoment ? `
+            <div class="form-group" id="negotiation-section">
+              <label class="form-label">Negotiation Category <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
+              <div class="tag-group" id="negotiation-group">
+                ${['Reward', 'Futility', 'Relief', 'Fantasy', 'Undermining', 'Substitution'].map(t => `
+                  <button class="tag-btn ${selectedNegotiation === t ? 'active' : ''}" data-tag="${t}">${t}</button>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
 
           ${isMorning ? `
             <div class="form-group" id="sleep-section">
@@ -148,6 +160,18 @@ export async function renderLog(container, params = {}) {
       mount();
     });
 
+    // Negotiation segments
+    const negotiationGroup = container.querySelector('#negotiation-group');
+    if (negotiationGroup) {
+      negotiationGroup.querySelectorAll('.tag-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const t = btn.dataset.tag;
+          selectedNegotiation = selectedNegotiation === t ? null : t; // Toggle
+          mount();
+        });
+      });
+    }
+
     // Adherence segments
     const adherenceGroup = container.querySelector('#adherence-group');
     let currentAdherence = null;
@@ -199,6 +223,7 @@ export async function renderLog(container, params = {}) {
         sleep_hours: sleepHours,
         sleep_quality: container.querySelector('#range-sleep-quality') ? sleepQuality : null,
         notes,
+        negotiation_category: isCravingMoment ? selectedNegotiation : null
       };
 
       const btn = container.querySelector('#save-log-btn');

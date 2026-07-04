@@ -10,6 +10,7 @@ export async function renderReflect(container) {
 
   let slipped = existing?.slipped ?? null; // null = not selected yet
   let selectedTriggers = new Set(existing?.triggers || []);
+  let selectedSubstance = existing?.slip_substance || null;
 
   function buildPage() {
     const slipCard = `
@@ -39,6 +40,17 @@ export async function renderReflect(container) {
         ${slipCard}
 
         <div class="reflect-form">
+          ${slipped === true ? `
+            <div class="form-group" id="substance-section">
+              <label class="form-label">Substance <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
+              <div class="segment-group" id="substance-group">
+                <button class="segment-btn ${selectedSubstance === 'THC' ? 'active' : ''}" data-val="THC">THC</button>
+                <button class="segment-btn ${selectedSubstance === 'Alcohol' ? 'active' : ''}" data-val="Alcohol">Alcohol</button>
+                <button class="segment-btn ${selectedSubstance === 'Both' ? 'active' : ''}" data-val="Both">Both</button>
+              </div>
+            </div>
+          ` : ''}
+
           <div class="form-group">
             <label class="form-label">Peak urge today</label>
             <div class="slider-container">
@@ -88,7 +100,16 @@ export async function renderReflect(container) {
       slipped = true; mount();
     });
     container.querySelector('#slip-no')?.addEventListener('click', () => {
-      slipped = false; mount();
+      slipped = false; selectedSubstance = null; mount();
+    });
+
+    // Substance toggle
+    container.querySelectorAll('#substance-group .segment-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.dataset.val;
+        selectedSubstance = selectedSubstance === val ? null : val;
+        mount();
+      });
     });
 
     // Peak urge slider
@@ -129,6 +150,7 @@ export async function renderReflect(container) {
         id: existing?.id || generateId(),
         date: today,
         slipped: slipped,
+        slip_substance: slipped === true ? selectedSubstance : null,
         peak_urge: peakUrge,
         unstructured_time: unstructuredTime,
         triggers: [...selectedTriggers],
