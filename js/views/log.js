@@ -27,7 +27,7 @@ export async function renderLog(container, params = {}) {
 
   let selectedCp = initialCp.id;
   let isCravingMoment = false;
-  let selectedNegotiation = null;
+  let selectedNegotiations = new Set();
 
   function buildForm() {
     const isMorning = selectedCp === 'morning';
@@ -89,7 +89,7 @@ export async function renderLog(container, params = {}) {
               <label class="form-label">Negotiation Category <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
               <div class="tag-group" id="negotiation-group">
                 ${['Reward', 'Futility', 'Relief', 'Fantasy', 'Undermining', 'Substitution'].map(t => `
-                  <button class="tag-btn ${selectedNegotiation === t ? 'active' : ''}" data-tag="${t}">${t}</button>
+                  <button class="tag-btn ${selectedNegotiations.has(t) ? 'active' : ''}" data-tag="${t}">${t}</button>
                 `).join('')}
               </div>
             </div>
@@ -166,8 +166,13 @@ export async function renderLog(container, params = {}) {
       negotiationGroup.querySelectorAll('.tag-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const t = btn.dataset.tag;
-          selectedNegotiation = selectedNegotiation === t ? null : t; // Toggle
-          mount();
+          if (selectedNegotiations.has(t)) {
+            selectedNegotiations.delete(t);
+            btn.classList.remove('active');
+          } else {
+            selectedNegotiations.add(t);
+            btn.classList.add('active');
+          }
         });
       });
     }
@@ -223,7 +228,7 @@ export async function renderLog(container, params = {}) {
         sleep_hours: sleepHours,
         sleep_quality: container.querySelector('#range-sleep-quality') ? sleepQuality : null,
         notes,
-        negotiation_category: isCravingMoment ? selectedNegotiation : null
+        negotiation_category: isCravingMoment && selectedNegotiations.size > 0 ? Array.from(selectedNegotiations) : null
       };
 
       const btn = container.querySelector('#save-log-btn');
