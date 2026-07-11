@@ -192,6 +192,7 @@ export async function exportAllData() {
   ]);
   const schedule = await getSetting('schedule');
   const checkpoints = await getSetting('checkpoints');
+  const insights = await getSetting('insights');
   return {
     exportedAt: new Date().toISOString(),
     version: 1,
@@ -199,7 +200,7 @@ export async function exportAllData() {
     reflections,
     plans,
     weekly_goals,
-    settings: { schedule, checkpoints }
+    settings: { schedule, checkpoints, insights }
   };
 }
 
@@ -212,4 +213,5 @@ export async function importAllData(data) {
   for (const item of (data.weekly_goals || [])) await dbPut('weekly_goals', item);
   if (data.settings?.schedule) await setSetting('schedule', data.settings.schedule);
   if (data.settings?.checkpoints) await setSetting('checkpoints', data.settings.checkpoints);
+  if (data.settings?.insights) await setSetting('insights', data.settings.insights);
 }
