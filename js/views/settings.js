@@ -124,7 +124,7 @@ export async function renderSettings(container) {
 
         <!-- ABOUT -->
         <div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:0.75rem">
-          <p>Tracker v1.10.0 — All data stays on your device</p>
+          <p>Tracker v1.10.1 — All data stays on your device</p>
           <p style="margin-top:4px">Built as a PWA. Add to home screen from your browser menu.</p>
         </div>
       </div>
