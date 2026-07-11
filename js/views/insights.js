@@ -270,8 +270,8 @@ export async function renderInsights(container) {
         const cravingLogs = dayLogs.filter(l => l.craving !== null);
         const energyLogs = dayLogs.filter(l => l.energy !== null);
         const ref = reflMap[d];
-        const avgC = cravingLogs.length ? (cravingLogs.reduce((s,l) => s+l.craving, 0) / cravingLogs.length).toFixed(0) : '—';
-        const avgE = energyLogs.length ? (energyLogs.reduce((s,l) => s+l.energy, 0) / energyLogs.length).toFixed(0) : '—';
+        const avgC = cravingLogs.length ? (cravingLogs.reduce((s,l) => s+l.craving, 0) / cravingLogs.length).toFixed(1) : '—';
+        const avgE = energyLogs.length ? (energyLogs.reduce((s,l) => s+l.energy, 0) / energyLogs.length).toFixed(1) : '—';
         const peakC = ref?.peak_urge ?? '—';
         const slipped = ref ? (ref.slipped ? '✗' : '✓') : '—';
         const slippedColor = ref ? (ref.slipped ? 'var(--danger)' : 'var(--success)') : 'var(--text-3)';
