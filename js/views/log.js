@@ -88,7 +88,7 @@ export async function renderLog(container, params = {}) {
             <div class="form-group" id="negotiation-section">
               <label class="form-label">Negotiation Category <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
               <div class="tag-group" id="negotiation-group">
-                ${['Reward', 'Futility', 'Relief', 'Fantasy', 'Undermining', 'Substitution'].map(t => `
+                ${['Reward', 'Futility', 'Relief', 'Fantasy', 'Undermining', 'Substitution', 'Void'].map(t => `
                   <button class="tag-btn ${selectedNegotiations.has(t) ? 'active' : ''}" data-tag="${t}">${t}</button>
                 `).join('')}
               </div>

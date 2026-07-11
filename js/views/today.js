@@ -1,4 +1,4 @@
-import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting } from '../db.js';
+import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList } from '../db.js';
 import { getToday, formatDate, formatTime, getCurrentScheduleBlock, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
@@ -9,15 +9,18 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive] = await Promise.all([
+  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights] = await Promise.all([
     getSchedule(),
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
     getReflectionByDate(today),
     getPlanByDate(today),
-    getSetting('lockdown_active')
+    getSetting('lockdown_active'),
+    getInsightsList()
   ]);
+
+  const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
   const currentBlock = getCurrentScheduleBlock(schedule);
   const suggestedCp = getSuggestedCheckpoint(checkpoints);
@@ -157,8 +160,16 @@ export async function renderToday(container) {
   }
 
   container.innerHTML = `
-    <div class="view-enter">
-      <div class="today-hero">
+    <div class="view-enter" style="padding-bottom:100px;">
+      ${dailyInsight ? `
+        <div style="padding:16px 16px 0;text-align:center">
+          <div style="font-style:italic;color:var(--text-2);font-size:0.875rem;background:var(--bg-2);padding:12px;border-radius:12px;border:1px solid var(--border)">
+            "${dailyInsight}"
+          </div>
+        </div>
+      ` : ''}
+      <!-- Header -->
+      <div class="today-hero" style="padding-top:16px;">
         <div>
           <div class="today-date">${restDate}</div>
           <div class="today-day">${dayPart}</div>

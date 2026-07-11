@@ -1,9 +1,12 @@
-import { exportAllData, importAllData, dbClear, getSetting, setSetting, getCheckpoints, DEFAULT_CHECKPOINTS, generateId } from '../db.js';
+import { exportAllData, importAllData, dbClear, getSetting, setSetting, getCheckpoints, DEFAULT_CHECKPOINTS, generateId, getInsightsList } from '../db.js';
 import { showToast } from '../app.js';
 
 export async function renderSettings(container) {
   const checkpoints = await getCheckpoints();
   let editableCheckpoints = checkpoints.map(cp => ({ ...cp }));
+
+  const insightsList = await getInsightsList();
+  let editableInsights = [...insightsList];
 
   // Last backup check
   const lastBackup = await getSetting('last_backup');
@@ -70,6 +73,28 @@ export async function renderSettings(container) {
           </div>
         </div>
 
+        <!-- INSIGHTS BANNER -->
+        <div class="section-header"><span class="section-title">Insights Banner</span></div>
+        <div class="settings-section" id="insights-list">
+          ${editableInsights.map((insight, i) => `
+            <div class="settings-row" style="align-items:center;gap:10px">
+              <input type="text" value="${insight.replace(/"/g, '&quot;')}" data-insight-idx="${i}" style="flex:1" placeholder="Add a personal insight...">
+              <button class="btn btn-icon btn-danger delete-insight" data-idx="${i}" aria-label="Delete insight">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </button>
+            </div>
+          `).join('')}
+          <div class="settings-row" style="padding:12px 16px">
+            <button class="btn btn-secondary" id="add-insight-btn" style="width:100%;gap:8px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add insight
+            </button>
+          </div>
+        </div>
+        <div style="padding:0 16px 8px">
+          <button class="btn btn-primary" id="save-insights-btn">Save Insights</button>
+        </div>
+
         <!-- CHECKPOINTS -->
         <div class="section-header"><span class="section-title">Checkpoints</span></div>
         <div class="settings-section" id="cp-list">
@@ -99,7 +124,7 @@ export async function renderSettings(container) {
 
         <!-- ABOUT -->
         <div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:0.75rem">
-          <p>Tracker v1.9.1 — All data stays on your device</p>
+          <p>Tracker v1.10.0 — All data stays on your device</p>
           <p style="margin-top:4px">Built as a PWA. Add to home screen from your browser menu.</p>
         </div>
       </div>
@@ -134,6 +159,38 @@ export async function renderSettings(container) {
     // Add checkpoint
     container.querySelector('#add-cp-btn')?.addEventListener('click', () => {
       editableCheckpoints.push({ id: generateId(), label: 'New checkpoint', startHour: 12, endHour: 14 });
+      mount();
+    });
+
+    // Insights editing
+    container.querySelectorAll('input[data-insight-idx]').forEach(input => {
+      input.addEventListener('change', () => {
+        const idx = parseInt(input.dataset.insightIdx);
+        editableInsights[idx] = input.value.trim();
+      });
+    });
+
+    // Delete insight
+    container.querySelectorAll('.delete-insight').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        editableInsights.splice(idx, 1);
+        mount();
+      });
+    });
+
+    // Add insight
+    container.querySelector('#add-insight-btn')?.addEventListener('click', () => {
+      editableInsights.push('');
+      mount();
+    });
+
+    // Save insights
+    container.querySelector('#save-insights-btn')?.addEventListener('click', async () => {
+      const validInsights = editableInsights.filter(i => i.trim() !== '');
+      editableInsights = validInsights;
+      await setSetting('insights', validInsights);
+      showToast('Insights saved');
       mount();
     });
 

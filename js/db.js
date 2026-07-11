@@ -106,12 +106,36 @@ export const DEFAULT_CHECKPOINTS = [
   { id: 'before_sleep', label: 'Before Sleep', startHour: 22, endHour: 3 },
 ];
 
+export const DEFAULT_INSIGHTS = [
+  "The pain is because of the use, not the solution to it.",
+  "Pleasure is not the goal. I've chased it before and regretted every time.",
+  "I can't trust my thoughts till recovery. They make the fuck-it moment likely.",
+  "The reward is tomorrow morning.",
+  "Don't engage, don't act. Nothing is inevitable even when it feels like it.",
+  "The craving uses the pain it created as an excuse to use again.",
+  "After resisting, things reset. It's always better if I resist.",
+  "If I'm honest, I don't really want it. I just want peace from the cravings.",
+  "Logging helps. I was almost convinced, but logging stopped it.",
+  "The more I resist, the stronger I get.",
+  "Don't let decisions be made when you are most vulnerable.",
+  "Sobriety is the priority, not performance.",
+  "The automatic impulse only takes over if I let it. It depends on me.",
+  "The negotiations seem innocent but they never are.",
+  "It's not about blame. It's a misconfiguration that heals with time.",
+  "The fear is useful. Not as punishment — but as fuel for vigilance.",
+  "The answer isn't in a prediction. It's in what you do next Saturday. Keep showing up."
+];
+
 export async function getSchedule() {
   return (await getSetting('schedule')) || DEFAULT_SCHEDULE;
 }
 
 export async function getCheckpoints() {
   return (await getSetting('checkpoints')) || DEFAULT_CHECKPOINTS;
+}
+
+export async function getInsightsList() {
+  return (await getSetting('insights')) || DEFAULT_INSIGHTS;
 }
 
 // Reflection helper: get by date
