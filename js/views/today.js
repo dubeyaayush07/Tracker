@@ -9,7 +9,7 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights] = await Promise.all([
+  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights] = await Promise.all([
     getSchedule(),
     getCheckpoints(),
     getClearDays(),
@@ -17,9 +17,12 @@ export async function renderToday(container) {
     getReflectionByDate(today),
     getPlanByDate(today),
     getSetting('lockdown_active'),
+    getSetting('lockdown_state'),
+    getSetting('lockdown_l2_end'),
     getInsightsList()
   ]);
 
+  const currentLockdown = lockdownState || (lockdownActive ? 'level1' : false);
   const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
   const currentBlock = getCurrentScheduleBlock(schedule);
@@ -43,24 +46,45 @@ export async function renderToday(container) {
     </div>
   ` : '';
 
-  const lockdownBtn = lockdownActive ? `
-    <div class="banner banner-danger" id="lockdown-btn" style="cursor:pointer;background:var(--danger);color:#fff">
-      <div style="display:flex;align-items:center;gap:12px">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        <div>
-          <div style="font-weight:700;font-size:0.9375rem">LOCKDOWN ACTIVE</div>
-          <div style="font-size:0.8125rem;opacity:0.9;margin-top:2px">Tap to disable</div>
+  let lockdownBtn = '';
+  if (currentLockdown === 'level2') {
+    lockdownBtn = `
+      <div class="banner" style="background:#4c1d95;color:#fff;border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 4px 12px rgba(76,29,149,0.3)">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
+          <div style="font-weight:700;font-size:1.125rem;letter-spacing:0.5px">LEVEL 2 LOCKDOWN</div>
+          <div style="font-size:0.9375rem;opacity:0.95;line-height:1.4">Lie down and sleep for 30 minutes. Do not jump to conclusions.</div>
+          <div id="lockdown-timer" style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin:8px 0;text-shadow:0 2px 4px rgba(0,0,0,0.2)">--:--</div>
+          <button id="cancel-l2-btn" style="background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:8px 16px;border-radius:20px;font-size:0.8125rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px)">Cancel Lockdown</button>
         </div>
       </div>
-    </div>
-  ` : `
-    <div class="banner banner-secondary" id="lockdown-btn" style="cursor:pointer;border:1px solid var(--danger-dim);">
-      <div style="display:flex;align-items:center;gap:12px;color:var(--danger)">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <div style="font-weight:600;font-size:0.875rem">Activate Lockdown</div>
+    `;
+  } else if (currentLockdown === 'level1') {
+    lockdownBtn = `
+      <div class="banner banner-danger" style="background:var(--danger);color:#fff;display:flex;flex-direction:column;gap:12px;padding:12px">
+        <div id="lockdown-btn" style="display:flex;align-items:center;gap:12px;cursor:pointer">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>
+            <div style="font-weight:700;font-size:0.9375rem">LOCKDOWN ACTIVE</div>
+            <div style="font-size:0.8125rem;opacity:0.9;margin-top:2px">Tap to disable</div>
+          </div>
+        </div>
+        <div style="height:1px;background:rgba(255,255,255,0.2)"></div>
+        <button id="escalate-l2-btn" style="background:rgba(0,0,0,0.15);color:#fff;border:none;padding:10px;border-radius:var(--radius-sm);font-size:0.875rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Escalate to Level 2 (Sleep Mode)
+        </button>
       </div>
-    </div>
-  `;
+    `;
+  } else {
+    lockdownBtn = `
+      <div class="banner banner-secondary" id="lockdown-btn" style="cursor:pointer;border:1px solid var(--danger-dim);">
+        <div style="display:flex;align-items:center;gap:12px;color:var(--danger)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div style="font-weight:600;font-size:0.875rem">Activate Lockdown</div>
+        </div>
+      </div>
+    `;
+  }
 
   const reflectPrompt = !reflection ? `
     <div class="reflect-prompt" id="reflect-prompt-btn">
@@ -213,6 +237,29 @@ export async function renderToday(container) {
     </button>
   `;
 
+  // Setup timer if level 2
+  if (window.lockdownL2Timer) clearInterval(window.lockdownL2Timer);
+  if (currentLockdown === 'level2' && lockdownL2End) {
+    const updateTimer = () => {
+      const el = container.querySelector('#lockdown-timer');
+      if (!el) {
+        clearInterval(window.lockdownL2Timer);
+        return;
+      }
+      const remaining = lockdownL2End - Date.now();
+      if (remaining <= 0) {
+        el.textContent = '00:00';
+        clearInterval(window.lockdownL2Timer);
+      } else {
+        const m = Math.floor(remaining / 60000);
+        const s = Math.floor((remaining % 60000) / 1000);
+        el.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    };
+    updateTimer();
+    window.lockdownL2Timer = setInterval(updateTimer, 1000);
+  }
+
   // Events
   container.querySelector('#fab-log')?.addEventListener('click', () => navigate('/log'));
   container.querySelector('#reflect-prompt-btn')?.addEventListener('click', () => navigate('/reflect'));
@@ -226,43 +273,59 @@ export async function renderToday(container) {
     });
   });
 
-  // Lockdown toggle logic
-  container.querySelector('#lockdown-btn')?.addEventListener('click', async () => {
-    const currentState = await getSetting('lockdown_active');
-    const newState = !currentState;
+  async function updateLockdownNotification(level) {
+    if (!('Notification' in window)) return;
+    let perm = Notification.permission;
+    if (perm !== 'granted' && perm !== 'denied') perm = await Notification.requestPermission();
+    if (perm !== 'granted') return;
     
-    await setSetting('lockdown_active', newState);
-    
-    if (newState) {
-      if ('Notification' in window) {
-        let perm = Notification.permission;
-        if (perm !== 'granted' && perm !== 'denied') {
-          perm = await Notification.requestPermission();
-        }
-        if (perm === 'granted') {
-          const reg = await navigator.serviceWorker.ready;
-          reg.showNotification('🚨 Lockdown Active', {
-            body: 'No major decisions. Do not jump to conclusions. Wait until you are regulated.',
-            icon: './icon-192.png',
-            requireInteraction: true,
-            tag: 'lockdown-notification',
-            vibrate: [200, 100, 200]
-          });
-        } else {
-          showToast('Notifications disabled in browser');
-        }
-      } else {
-        showToast('Notifications not supported');
-      }
-    } else {
-      if ('Notification' in window) {
-        const reg = await navigator.serviceWorker.ready;
-        const notifications = await reg.getNotifications({ tag: 'lockdown-notification' });
-        notifications.forEach(n => n.close());
-      }
+    const reg = await navigator.serviceWorker.ready;
+    if (level === false) {
+      const notifications = await reg.getNotifications({ tag: 'lockdown-notification' });
+      notifications.forEach(n => n.close());
+    } else if (level === 'level1') {
+      reg.showNotification('🚨 Lockdown Active', {
+        body: 'No major decisions. Do not jump to conclusions. Wait until you are regulated.',
+        icon: './icon-192.png',
+        requireInteraction: true,
+        tag: 'lockdown-notification',
+        vibrate: [200, 100, 200]
+      });
+    } else if (level === 'level2') {
+      reg.showNotification('💤 Level 2 Lockdown', {
+        body: 'Lie down and sleep for 30 minutes. Do not jump to conclusions.',
+        icon: './icon-192.png',
+        requireInteraction: true,
+        tag: 'lockdown-notification',
+        vibrate: [200, 100, 200]
+      });
     }
-    
-    // Re-render
+  }
+
+  // Toggle Level 1 / Off
+  container.querySelector('#lockdown-btn')?.addEventListener('click', async () => {
+    const newState = currentLockdown === false ? 'level1' : false;
+    await setSetting('lockdown_state', newState);
+    await setSetting('lockdown_active', newState === 'level1');
+    await updateLockdownNotification(newState);
+    renderToday(container);
+  });
+
+  // Escalate to Level 2
+  container.querySelector('#escalate-l2-btn')?.addEventListener('click', async () => {
+    await setSetting('lockdown_state', 'level2');
+    await setSetting('lockdown_active', false);
+    await setSetting('lockdown_l2_end', Date.now() + (30 * 60 * 1000));
+    await updateLockdownNotification('level2');
+    renderToday(container);
+  });
+
+  // Cancel Level 2
+  container.querySelector('#cancel-l2-btn')?.addEventListener('click', async () => {
+    await setSetting('lockdown_state', false);
+    await setSetting('lockdown_active', false);
+    await setSetting('lockdown_l2_end', null);
+    await updateLockdownNotification(false);
     renderToday(container);
   });
 }
