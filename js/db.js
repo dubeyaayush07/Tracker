@@ -1,5 +1,5 @@
 const DB_NAME = 'tracker-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let _db = null;
 
@@ -28,6 +28,11 @@ export async function openDB() {
       if (!db.objectStoreNames.contains('weekly_goals')) {
         const wg = db.createObjectStore('weekly_goals', { keyPath: 'id' });
         wg.createIndex('week_start', 'week_start', { unique: true });
+      }
+      if (!db.objectStoreNames.contains('worries')) {
+        const w = db.createObjectStore('worries', { keyPath: 'id' });
+        w.createIndex('createdAt', 'createdAt', { unique: false });
+        w.createIndex('stance', 'stance', { unique: false });
       }
     };
     req.onsuccess = (e) => { _db = e.target.result; resolve(_db); };
@@ -160,6 +165,18 @@ export async function saveWeeklyGoals(entry) {
   await dbPut('weekly_goals', entry);
 }
 
+// Worries helper
+export async function getWorries() {
+  const worries = await dbGetAll('worries');
+  return worries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+export async function saveWorry(worry) {
+  await dbPut('worries', worry);
+}
+export async function deleteWorry(id) {
+  await dbDelete('worries', id);
+}
+
 // Clear-day streak (no slip)
 export async function getClearDays() {
   const reflections = await dbGetAll('reflections');
@@ -184,11 +201,12 @@ export async function getClearDays() {
 
 // Full export
 export async function exportAllData() {
-  const [logs, reflections, plans, weekly_goals] = await Promise.all([
+  const [logs, reflections, plans, weekly_goals, worries] = await Promise.all([
     dbGetAll('logs'),
     dbGetAll('reflections'),
     dbGetAll('plans'),
     dbGetAll('weekly_goals'),
+    dbGetAll('worries'),
   ]);
   const schedule = await getSetting('schedule');
   const checkpoints = await getSetting('checkpoints');
@@ -200,17 +218,19 @@ export async function exportAllData() {
     reflections,
     plans,
     weekly_goals,
+    worries,
     settings: { schedule, checkpoints, insights }
   };
 }
 
 // Full import
 export async function importAllData(data) {
-  await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans'), dbClear('weekly_goals')]);
+  await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans'), dbClear('weekly_goals'), dbClear('worries')]);
   for (const item of (data.logs || [])) await dbPut('logs', item);
   for (const item of (data.reflections || [])) await dbPut('reflections', item);
   for (const item of (data.plans || [])) await dbPut('plans', item);
   for (const item of (data.weekly_goals || [])) await dbPut('weekly_goals', item);
+  for (const item of (data.worries || [])) await dbPut('worries', item);
   if (data.settings?.schedule) await setSetting('schedule', data.settings.schedule);
   if (data.settings?.checkpoints) await setSetting('checkpoints', data.settings.checkpoints);
   if (data.settings?.insights) await setSetting('insights', data.settings.insights);

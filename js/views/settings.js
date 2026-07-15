@@ -16,7 +16,7 @@ export async function renderSettings(container) {
 
   function buildPage() {
     const backupStatus = daysSinceBackup === null 
-      ? { cls: 'stale', text: 'Never backed up' }
+      ? { cls: 'warning', text: 'Never backed up' }
       : daysSinceBackup <= 3 
         ? { cls: 'ok', text: `Backed up ${daysSinceBackup === 0 ? 'today' : `${daysSinceBackup}d ago`}` }
         : daysSinceBackup <= 7 

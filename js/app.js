@@ -6,7 +6,8 @@ import { renderSchedule } from './views/schedule.js';
 import { renderPlan } from './views/plan.js';
 import { renderInsights } from './views/insights.js';
 import { renderSettings } from './views/settings.js';
-
+import { renderMenu } from './views/menu.js';
+import { renderWorries } from './views/worries.js';
 const main = document.getElementById('main-content');
 const navItems = document.querySelectorAll('.nav-item');
 
@@ -39,10 +40,12 @@ const ROUTES = {
   '/': { render: renderToday, navId: 'nav-today' },
   '/log': { render: (c, p) => renderLog(c, p), navId: 'nav-log' },
   '/reflect': { render: renderReflect, navId: 'nav-today' },
-  '/schedule': { render: renderSchedule, navId: 'nav-settings' },
+  '/schedule': { render: renderSchedule, navId: 'nav-menu' },
   '/plan': { render: (c, p) => renderPlan(c, p), navId: 'nav-plan' },
   '/insights': { render: renderInsights, navId: 'nav-insights' },
-  '/settings': { render: renderSettings, navId: 'nav-settings' },
+  '/menu': { render: renderMenu, navId: 'nav-menu' },
+  '/settings': { render: renderSettings, navId: 'nav-menu' },
+  '/worries': { render: renderWorries, navId: 'nav-menu' },
 };
 
 async function route() {
