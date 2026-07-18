@@ -1,12 +1,21 @@
-import { getWorries, saveWorry, deleteWorry, generateId } from '../db.js';
+import { getWorries, saveWorry, deleteWorry, generateId, getPlanByDate, dbPut } from '../db.js';
 import { showToast } from '../app.js';
+import { getToday, getTomorrow } from '../utils/time.js';
 
 export async function renderWorries(container) {
   let worries = await getWorries();
   let editingId = null; // null means list view, 'new' means new form, UUID means editing
+  let filterState = 'pending'; // 'pending', 'active', 'archived'
 
   function buildList() {
-    if (worries.length === 0) {
+    const filtered = worries.filter(w => {
+      if (filterState === 'pending') return w.stance === 'Unassessed' && !w.archived;
+      if (filterState === 'active') return w.stance !== 'Unassessed' && !w.archived;
+      if (filterState === 'archived') return w.archived;
+      return true;
+    });
+
+    if (filtered.length === 0) {
       return `
         <div style="text-align:center; padding: 40px 20px; color: var(--text-3);">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px;opacity:0.5">
@@ -17,7 +26,7 @@ export async function renderWorries(container) {
       `;
     }
 
-    return worries.map(w => {
+    return filtered.map(w => {
       const isUnassessed = w.stance === 'Unassessed';
       const badgeColor = isUnassessed ? 'var(--warning)' : 'var(--success)';
       return `
@@ -66,8 +75,11 @@ export async function renderWorries(container) {
         </div>
         
         <div style="margin-bottom:24px;">
-          <label style="display:block; font-size:0.85rem; color:var(--text-2); margin-bottom:6px;">Reasoning (Optional)</label>
-          <textarea id="worry-comment" class="input" style="width:100%; min-height:60px; resize:vertical;" placeholder="Why this stance?">${comment}</textarea>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <label style="font-size:0.85rem; color:var(--text-2);">Reasoning (Optional)</label>
+            ${!isNew ? `<button class="btn btn-xs btn-secondary" id="add-update-btn" style="padding:2px 8px; font-size:0.75rem;">Add Update</button>` : ''}
+          </div>
+          <textarea id="worry-comment" class="input" style="width:100%; min-height:80px; resize:vertical;" placeholder="Why this stance?">${comment}</textarea>
         </div>
         
         <div style="display:flex; gap:12px;">
@@ -75,9 +87,21 @@ export async function renderWorries(container) {
           <button class="btn btn-secondary" id="cancel-worry" style="flex:1;">Cancel</button>
         </div>
         
+        ${(!isNew && stance === 'Actionable' && !worry.archived) ? `
+          <div class="card" style="margin-top:24px; padding:16px; background:var(--surface-2); border:1px solid var(--border);">
+            <div style="font-size:0.85rem; font-weight:500; margin-bottom:8px;">Send to Plan</div>
+            <input type="text" id="plan-task-text" class="input" style="width:100%; margin-bottom:8px; font-size:0.85rem; padding:8px;" placeholder="Specific action step (e.g. Call CA)">
+            <div style="display:flex; gap:8px;">
+              <input type="date" id="plan-task-date" class="input" style="flex:1; font-size:0.85rem; padding:8px;" value="${getTomorrow()}">
+              <button class="btn btn-primary btn-sm" id="send-to-plan-btn" style="flex-shrink:0; width:auto; padding:8px 16px;">Send</button>
+            </div>
+          </div>
+        ` : ''}
+
         ${!isNew ? `
-          <div style="margin-top:24px;">
-            <button class="btn btn-danger" id="delete-worry" style="width:100%;">Delete Worry</button>
+          <div style="margin-top:24px; display:flex; gap:12px;">
+            <button class="btn btn-secondary" id="archive-worry" style="flex:1;">${worry.archived ? 'Unarchive' : 'Archive Worry'}</button>
+            <button class="btn btn-icon btn-danger" id="delete-worry" aria-label="Delete permanently">✕</button>
           </div>
         ` : ''}
       </div>
@@ -111,7 +135,14 @@ export async function renderWorries(container) {
             Log a New Worry
           </button>
           
-          <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-size:0.9rem; font-weight:500;">Filter</div>
+            <select id="worry-filter" class="input" style="padding:4px 8px; font-size:0.8rem; width:150px; background:var(--surface-2);">
+              <option value="pending" ${filterState === 'pending' ? 'selected' : ''}>Pending Review</option>
+              <option value="active" ${filterState === 'active' ? 'selected' : ''}>Active</option>
+              <option value="archived" ${filterState === 'archived' ? 'selected' : ''}>Archived</option>
+            </select>
+          </div>
             ${buildList()}
           </div>
         </div>
@@ -143,6 +174,40 @@ export async function renderWorries(container) {
         mount();
       });
 
+      container.querySelector('#add-update-btn')?.addEventListener('click', () => {
+        const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const prefix = commentEl.value ? '\n\n' : '';
+        commentEl.value = commentEl.value + prefix + `[${dateStr}]: `;
+        commentEl.focus();
+        // Set cursor to end
+        commentEl.selectionStart = commentEl.selectionEnd = commentEl.value.length;
+      });
+
+      container.querySelector('#send-to-plan-btn')?.addEventListener('click', async () => {
+        const taskText = container.querySelector('#plan-task-text').value.trim();
+        const taskDate = container.querySelector('#plan-task-date').value;
+        if (!taskText) return showToast('Please enter a specific task.');
+        if (!taskDate) return showToast('Please select a date.');
+        
+        let plan = await getPlanByDate(taskDate);
+        if (!plan) plan = { id: generateId(), date: taskDate, activities: [], updated_at: new Date().toISOString() };
+        
+        plan.activities.push({ id: generateId(), label: taskText, status: 'pending', notes: '' });
+        await dbPut('plans', plan);
+        showToast('Task added to plan!');
+        container.querySelector('#plan-task-text').value = '';
+      });
+
+      container.querySelector('#archive-worry')?.addEventListener('click', async () => {
+        const w = worries.find(w => w.id === editingId);
+        w.archived = !w.archived;
+        await saveWorry(w);
+        showToast(w.archived ? 'Worry archived' : 'Worry unarchived');
+        worries = await getWorries();
+        editingId = null;
+        mount();
+      });
+
       container.querySelector('#save-worry')?.addEventListener('click', async () => {
         const text = textEl.value.trim();
         if (!text) return showToast('Please enter a worry.');
@@ -153,7 +218,8 @@ export async function renderWorries(container) {
           intensity: parseInt(intEl.value),
           stance: stanceEl.value,
           comment: commentEl.value.trim(),
-          createdAt: isNew ? new Date().toISOString() : worries.find(w => w.id === editingId).createdAt
+          createdAt: isNew ? new Date().toISOString() : worries.find(w => w.id === editingId).createdAt,
+          archived: isNew ? false : worries.find(w => w.id === editingId).archived || false
         };
 
         await saveWorry(worry);
@@ -175,6 +241,11 @@ export async function renderWorries(container) {
     } else {
       container.querySelector('#add-worry-btn')?.addEventListener('click', () => {
         editingId = 'new';
+        mount();
+      });
+
+      container.querySelector('#worry-filter')?.addEventListener('change', (e) => {
+        filterState = e.target.value;
         mount();
       });
 
