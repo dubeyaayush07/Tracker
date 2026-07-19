@@ -162,12 +162,21 @@ export async function renderWorries(container, params = {}) {
         if (intValEl) intValEl.textContent = e.target.value;
       });
 
+      const goBack = () => {
+        window.history.back();
+        setTimeout(() => {
+          if (window.location.hash.includes('?id=')) {
+            window.location.replace('#/worries');
+          }
+        }, 50);
+      };
+
       container.querySelector('#back-btn')?.addEventListener('click', () => {
-        navigate('#/worries');
+        goBack();
       });
 
       container.querySelector('#cancel-worry')?.addEventListener('click', () => {
-        navigate('#/worries');
+        goBack();
       });
 
       container.querySelector('#add-update-btn')?.addEventListener('click', () => {
@@ -189,6 +198,7 @@ export async function renderWorries(container, params = {}) {
         if (!plan) plan = { id: generateId(), date: taskDate, activities: [], updated_at: new Date().toISOString() };
         
         plan.activities.push({ id: generateId(), label: taskText, status: 'pending', notes: '' });
+        plan.updated_at = new Date().toISOString();
         await dbPut('plans', plan);
         showToast('Task added to plan!');
         container.querySelector('#plan-task-text').value = '';
@@ -199,7 +209,7 @@ export async function renderWorries(container, params = {}) {
         w.archived = !w.archived;
         await saveWorry(w);
         showToast(w.archived ? 'Worry archived' : 'Worry unarchived');
-        navigate('#/worries');
+        goBack();
       });
 
       container.querySelector('#save-worry')?.addEventListener('click', async () => {
@@ -230,7 +240,7 @@ export async function renderWorries(container, params = {}) {
         if (confirm('Delete this worry permanently?')) {
           await deleteWorry(editingId);
           showToast('Worry deleted');
-          navigate('#/worries');
+          goBack();
         }
       });
     } else {
