@@ -45,7 +45,7 @@ const ROUTES = {
   '/insights': { render: renderInsights, navId: 'nav-insights' },
   '/menu': { render: renderMenu, navId: 'nav-menu' },
   '/settings': { render: renderSettings, navId: 'nav-menu' },
-  '/worries': { render: renderWorries, navId: 'nav-menu' },
+  '/worries': { render: (c, p) => renderWorries(c, p), navId: 'nav-menu' },
 };
 
 async function route() {

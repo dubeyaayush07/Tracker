@@ -1,11 +1,12 @@
 import { getWorries, saveWorry, deleteWorry, generateId, getPlanByDate, dbPut } from '../db.js';
-import { showToast } from '../app.js';
+import { showToast, navigate } from '../app.js';
 import { getToday, getTomorrow } from '../utils/time.js';
 
-export async function renderWorries(container) {
+let filterState = 'pending'; // 'pending', 'active', 'archived'
+
+export async function renderWorries(container, params = {}) {
   let worries = await getWorries();
-  let editingId = null; // null means list view, 'new' means new form, UUID means editing
-  let filterState = 'pending'; // 'pending', 'active', 'archived'
+  let editingId = params.id || null; // null means list view, 'new' means new form, UUID means editing
 
   function buildList() {
     const filtered = worries.filter(w => {
@@ -135,13 +136,10 @@ export async function renderWorries(container) {
             Log a New Worry
           </button>
           
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-size:0.9rem; font-weight:500;">Filter</div>
-            <select id="worry-filter" class="input" style="padding:4px 8px; font-size:0.8rem; width:150px; background:var(--surface-2);">
-              <option value="pending" ${filterState === 'pending' ? 'selected' : ''}>Pending Review</option>
-              <option value="active" ${filterState === 'active' ? 'selected' : ''}>Active</option>
-              <option value="archived" ${filterState === 'archived' ? 'selected' : ''}>Archived</option>
-            </select>
+          <div style="margin-bottom:16px; display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
+            <button class="cp-chip ${filterState === 'pending' ? 'active' : ''}" data-filter="pending" style="border-radius:20px; padding:6px 14px; font-size:0.8125rem;">Pending</button>
+            <button class="cp-chip ${filterState === 'active' ? 'active' : ''}" data-filter="active" style="border-radius:20px; padding:6px 14px; font-size:0.8125rem;">Active</button>
+            <button class="cp-chip ${filterState === 'archived' ? 'active' : ''}" data-filter="archived" style="border-radius:20px; padding:6px 14px; font-size:0.8125rem;">Archived</button>
           </div>
             ${buildList()}
           </div>
@@ -165,13 +163,11 @@ export async function renderWorries(container) {
       });
 
       container.querySelector('#back-btn')?.addEventListener('click', () => {
-        editingId = null;
-        mount();
+        navigate('#/worries');
       });
 
       container.querySelector('#cancel-worry')?.addEventListener('click', () => {
-        editingId = null;
-        mount();
+        navigate('#/worries');
       });
 
       container.querySelector('#add-update-btn')?.addEventListener('click', () => {
@@ -203,9 +199,7 @@ export async function renderWorries(container) {
         w.archived = !w.archived;
         await saveWorry(w);
         showToast(w.archived ? 'Worry archived' : 'Worry unarchived');
-        worries = await getWorries();
-        editingId = null;
-        mount();
+        navigate('#/worries');
       });
 
       container.querySelector('#save-worry')?.addEventListener('click', async () => {
@@ -224,35 +218,36 @@ export async function renderWorries(container) {
 
         await saveWorry(worry);
         showToast('Worry saved');
-        worries = await getWorries();
-        editingId = worry.id;
-        mount();
+        if (isNew) {
+          navigate('#/worries?id=' + worry.id);
+        } else {
+          worries = await getWorries();
+          mount();
+        }
       });
 
       container.querySelector('#delete-worry')?.addEventListener('click', async () => {
         if (confirm('Delete this worry permanently?')) {
           await deleteWorry(editingId);
           showToast('Worry deleted');
-          worries = await getWorries();
-          editingId = null;
-          mount();
+          navigate('#/worries');
         }
       });
     } else {
       container.querySelector('#add-worry-btn')?.addEventListener('click', () => {
-        editingId = 'new';
-        mount();
+        navigate('#/worries?id=new');
       });
 
-      container.querySelector('#worry-filter')?.addEventListener('change', (e) => {
-        filterState = e.target.value;
-        mount();
+      container.querySelectorAll('.cp-chip').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          filterState = e.target.dataset.filter;
+          mount();
+        });
       });
 
       container.querySelectorAll('.worry-item').forEach(el => {
         el.addEventListener('click', () => {
-          editingId = el.dataset.id;
-          mount();
+          navigate('#/worries?id=' + el.dataset.id);
         });
       });
     }
