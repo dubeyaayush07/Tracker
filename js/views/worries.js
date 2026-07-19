@@ -219,7 +219,7 @@ export async function renderWorries(container, params = {}) {
         await saveWorry(worry);
         showToast('Worry saved');
         if (isNew) {
-          navigate('#/worries?id=' + worry.id);
+          window.location.replace(window.location.href.split('#')[0] + '#/worries?id=' + worry.id);
         } else {
           worries = await getWorries();
           mount();
