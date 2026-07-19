@@ -225,7 +225,7 @@ export async function renderWorries(container) {
         await saveWorry(worry);
         showToast('Worry saved');
         worries = await getWorries();
-        editingId = null;
+        editingId = worry.id;
         mount();
       });
 
