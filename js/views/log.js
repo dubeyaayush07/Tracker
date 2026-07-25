@@ -1,4 +1,4 @@
-import { dbPut, getCheckpoints, generateId } from '../db.js';
+import { dbPut, getCheckpoints, generateId, setSetting } from '../db.js';
 import { getToday, formatTime, getSuggestedCheckpoint } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
@@ -114,6 +114,22 @@ export async function renderLog(container, params = {}) {
             <textarea id="log-notes" placeholder="Anything to note? Strong craving, neck tension, gym helped…" rows="3"></textarea>
           </div>
 
+          <div id="dynamic-interventions" style="display:none; margin-bottom:16px;">
+            <div id="tape-forward-section" style="display:none; margin-bottom:16px;">
+              <label class="form-label" style="color:var(--primary);">Play the tape forward <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
+              <textarea id="tape-forward-text" class="input" style="width:100%; min-height:60px; resize:vertical; padding:8px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.875rem; background:var(--bg);" placeholder="What does tomorrow morning look like if you use?"></textarea>
+            </div>
+            <div id="calm-day-section" style="display:none; padding:16px; background:var(--surface-2); border:1px solid var(--primary-dim); border-radius:var(--radius-sm);">
+              <div style="font-weight:600; font-size:0.9375rem; color:var(--primary); margin-bottom:8px;">Calm-Day Decision Detected</div>
+              <div style="font-size:0.8125rem; color:var(--text-2); margin-bottom:12px; line-height:1.4;">The desire to use right now feels completely rational and permanent. It isn't. Commit to a 24-hour gap.</div>
+              <input type="text" id="calm-day-reason" class="input" style="width:100%; margin-bottom:12px; padding:8px; font-size:0.875rem; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--bg);" placeholder="I want to use because...">
+              <label style="display:flex; align-items:flex-start; gap:8px; font-size:0.875rem; cursor:pointer;">
+                <input type="checkbox" id="calm-day-commit" style="margin-top:2px;">
+                <span>I commit to waiting 24 hours (until tomorrow) before acting on this decision.</span>
+              </label>
+            </div>
+          </div>
+
           <button class="btn btn-primary" id="save-log-btn">Save Entry</button>
         </div>
       </div>
@@ -126,12 +142,45 @@ export async function renderLog(container, params = {}) {
   }
 
   function bindEvents() {
+    function updateDynamicUI() {
+      const interventions = container.querySelector('#dynamic-interventions');
+      const tapeSection = container.querySelector('#tape-forward-section');
+      const calmSection = container.querySelector('#calm-day-section');
+      
+      if (!interventions || !tapeSection || !calmSection) return;
+
+      const include = container.querySelector('#include-stats')?.checked !== false;
+      const craving = include ? parseInt(container.querySelector('#range-craving')?.value || 1) : null;
+      const mood = include ? parseInt(container.querySelector('#range-mood')?.value || 5) : null;
+
+      if (isCravingMoment && include && craving <= 4) {
+        interventions.style.display = 'block';
+        tapeSection.style.display = 'block';
+        if (mood >= 6) {
+          calmSection.style.display = 'block';
+        } else {
+          calmSection.style.display = 'none';
+          const calmCommit = container.querySelector('#calm-day-commit');
+          if (calmCommit) calmCommit.checked = false;
+        }
+      } else {
+        interventions.style.display = 'none';
+        tapeSection.style.display = 'none';
+        calmSection.style.display = 'none';
+        const calmCommit = container.querySelector('#calm-day-commit');
+        if (calmCommit) calmCommit.checked = false;
+      }
+    }
+
     // Slider live values
     ['energy', 'craving', 'mood', 'sleep-quality'].forEach(id => {
       const range = container.querySelector(`#range-${id}`);
       const val = container.querySelector(`#val-${id}`);
       if (range && val) {
-        range.addEventListener('input', () => { val.textContent = range.value; });
+        range.addEventListener('input', () => { 
+          val.textContent = range.value; 
+          updateDynamicUI();
+        });
       }
     });
 
@@ -142,6 +191,7 @@ export async function renderLog(container, params = {}) {
       includeStats.addEventListener('change', (e) => {
         statsSection.style.opacity = e.target.checked ? '1' : '0.4';
         statsSection.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+        updateDynamicUI();
       });
     }
 
@@ -214,6 +264,19 @@ export async function renderLog(container, params = {}) {
       const adherenceBtn = container.querySelector('#adherence-group .segment-btn.active');
       const adherence = adherenceBtn ? adherenceBtn.dataset.val : null;
 
+      const tapeText = container.querySelector('#tape-forward-text')?.value?.trim();
+      const calmReason = container.querySelector('#calm-day-reason')?.value?.trim();
+      const calmCommit = container.querySelector('#calm-day-commit')?.checked;
+      
+      let finalNotes = notes;
+      if (tapeText) finalNotes += (finalNotes ? '\n\n' : '') + '[Tomorrow:] ' + tapeText;
+      if (calmReason) finalNotes += (finalNotes ? '\n\n' : '') + '[Calm-Day Reason:] ' + calmReason;
+      if (calmCommit) finalNotes += (finalNotes ? '\n\n' : '') + '[Action:] Committed to a 24-hour wait.';
+
+      if (calmCommit) {
+        await setSetting('lockdown_24h_end', Date.now() + (24 * 60 * 60 * 1000));
+      }
+
       const entry = {
         id: generateId(),
         timestamp: new Date().toISOString(),
@@ -227,7 +290,7 @@ export async function renderLog(container, params = {}) {
         deviation_reason: adherence === 'no' ? deviation : null,
         sleep_hours: sleepHours,
         sleep_quality: container.querySelector('#range-sleep-quality') ? sleepQuality : null,
-        notes,
+        notes: finalNotes,
         negotiation_category: isCravingMoment && selectedNegotiations.size > 0 ? Array.from(selectedNegotiations) : null
       };
 
@@ -239,6 +302,8 @@ export async function renderLog(container, params = {}) {
       showToast('Entry saved');
       navigate('/');
     });
+
+    updateDynamicUI();
   }
 
   mount();

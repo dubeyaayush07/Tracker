@@ -9,7 +9,7 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights] = await Promise.all([
+  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights, lockdown24hEnd] = await Promise.all([
     getSchedule(),
     getCheckpoints(),
     getClearDays(),
@@ -19,7 +19,8 @@ export async function renderToday(container) {
     getSetting('lockdown_active'),
     getSetting('lockdown_state'),
     getSetting('lockdown_l2_end'),
-    getInsightsList()
+    getInsightsList(),
+    getSetting('lockdown_24h_end')
   ]);
 
   const currentLockdown = lockdownState || (lockdownActive ? 'level1' : false);
@@ -81,6 +82,19 @@ export async function renderToday(container) {
         <div style="display:flex;align-items:center;gap:12px;color:var(--danger)">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <div style="font-weight:600;font-size:0.875rem">Activate Lockdown</div>
+        </div>
+      </div>
+    `;
+  }
+
+  let calmDayBanner = '';
+  if (lockdown24hEnd && lockdown24hEnd > Date.now()) {
+    calmDayBanner = `
+      <div class="banner" style="background:var(--primary);color:#fff;border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2)">
+        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
+          <div style="font-weight:700;font-size:1.125rem;letter-spacing:0.5px">CALM-DAY 24H WAIT</div>
+          <div style="font-size:0.9375rem;opacity:0.95;line-height:1.4">You committed to waiting before acting on a calm-day desire.</div>
+          <div id="calm-day-timer" style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin:8px 0;text-shadow:0 2px 4px rgba(0,0,0,0.2)">--:--:--</div>
         </div>
       </div>
     `;
@@ -215,6 +229,7 @@ export async function renderToday(container) {
       ` : ''}
 
       ${saturdayBanner}
+      ${calmDayBanner}
       ${lockdownBtn}
 
       ${planSection}
@@ -258,6 +273,30 @@ export async function renderToday(container) {
     };
     updateTimer();
     window.lockdownL2Timer = setInterval(updateTimer, 1000);
+  }
+
+  // Setup 24h wait timer
+  if (window.calmDayTimer) clearInterval(window.calmDayTimer);
+  if (lockdown24hEnd && lockdown24hEnd > Date.now()) {
+    const updateCalmTimer = () => {
+      const el = container.querySelector('#calm-day-timer');
+      if (!el) {
+        clearInterval(window.calmDayTimer);
+        return;
+      }
+      const remaining = lockdown24hEnd - Date.now();
+      if (remaining <= 0) {
+        el.textContent = '00:00:00';
+        clearInterval(window.calmDayTimer);
+      } else {
+        const h = Math.floor(remaining / 3600000);
+        const m = Math.floor((remaining % 3600000) / 60000);
+        const s = Math.floor((remaining % 60000) / 1000);
+        el.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+      }
+    };
+    updateCalmTimer();
+    window.calmDayTimer = setInterval(updateCalmTimer, 1000);
   }
 
   // Events
