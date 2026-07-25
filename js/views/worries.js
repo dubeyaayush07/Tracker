@@ -131,6 +131,12 @@ export async function renderWorries(container, params = {}) {
           </div>
           <p style="color:var(--text-2); font-size:0.9rem; margin-bottom:20px;">Review your thoughts and choose a stance.</p>
           
+          <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px; margin-bottom:24px;">
+            <div style="font-size:0.8125rem; font-style:italic; color:var(--text-2); text-align:center; line-height:1.4;">
+              "The Saturday review is enough. Log it, act on your goals, and don't theorize."
+            </div>
+          </div>
+
           <button class="btn btn-primary" id="add-worry-btn" style="width:100%; margin-bottom:24px; gap:8px;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Log a New Worry
@@ -227,7 +233,7 @@ export async function renderWorries(container, params = {}) {
         };
 
         await saveWorry(worry);
-        showToast('Worry saved');
+        showToast('Worry acknowledged. Leave analysis for Saturday.');
         if (isNew) {
           window.location.replace(window.location.href.split('#')[0] + '#/worries?id=' + worry.id);
         } else {
