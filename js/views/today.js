@@ -212,10 +212,6 @@ export async function renderToday(container) {
           <div class="today-date">${restDate}</div>
           <div class="today-day">${dayPart}</div>
         </div>
-        <div class="clear-counter">
-          <div class="clear-number">${clearDays}</div>
-          <div class="clear-label">Clear days</div>
-        </div>
       </div>
 
       ${currentBlock ? `
