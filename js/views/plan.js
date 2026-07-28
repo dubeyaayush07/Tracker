@@ -38,10 +38,10 @@ export async function renderPlan(container, params = {}) {
           ${act.label}
           ${act.notes ? `<div style="font-size:0.75rem;color:var(--text-2);margin-top:2px">${act.notes}</div>` : ''}
         </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-xs btn-ghost edit-act" data-id="${act.id}">Edit</button>
-          <button class="btn btn-xs btn-ghost dup-act" data-id="${act.id}">→ Tomorrow</button>
-          <button class="btn btn-xs btn-danger delete-act" data-id="${act.id}">✕</button>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-xs btn-ghost edit-act" data-id="${act.id}" style="padding:4px;color:var(--text-2)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg></button>
+          <button class="btn btn-xs btn-ghost dup-act" data-id="${act.id}" style="padding:4px;color:var(--text-2)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><polyline points="13 14 17 14 17 18"></polyline><path d="M17 14l-6 6"></path></svg></button>
+          <button class="btn btn-xs btn-ghost delete-act" data-id="${act.id}" style="padding:4px;color:var(--danger)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
         </div>
       </div>
     `).join('');
@@ -158,6 +158,22 @@ export async function renderPlan(container, params = {}) {
   }
 
   async function savePlan() {
+    activities.sort((a, b) => {
+      if (!a.timeBlock && !b.timeBlock) return 0;
+      if (!a.timeBlock) return 1;
+      if (!b.timeBlock) return -1;
+      const parse = (str) => {
+        const time = str.split('–')[0].trim();
+        const [t, p] = time.split(' ');
+        let [h, m] = t.split(':');
+        h = parseInt(h, 10);
+        if (p === 'PM' && h !== 12) h += 12;
+        if (p === 'AM' && h === 12) h = 0;
+        return h * 60 + parseInt(m, 10);
+      };
+      return parse(a.timeBlock) - parse(b.timeBlock);
+    });
+
     const entry = {
       id: plan?.id || generateId(),
       date: targetDate,
@@ -227,9 +243,34 @@ export async function renderPlan(container, params = {}) {
           const act = activities[actIndex];
           activities.splice(actIndex, 1);
           newActivityText = act.label;
+          
+          let editStart = '';
+          let editEnd = '';
+          if (act.timeBlock) {
+             const parseForInput = (str) => {
+               const [t, p] = str.trim().split(' ');
+               let [h, m] = t.split(':');
+               h = parseInt(h, 10);
+               if (p === 'PM' && h !== 12) h += 12;
+               if (p === 'AM' && h === 12) h = 0;
+               return `${h.toString().padStart(2, '0')}:${m}`;
+             };
+             const parts = act.timeBlock.split('–');
+             editStart = parseForInput(parts[0]);
+             if (parts[1]) {
+               editEnd = parseForInput(parts[1]);
+             }
+          }
+
           savePlan();
           mount();
           const input = container.querySelector('#new-activity-input');
+          const startInput = container.querySelector('#new-activity-start');
+          const endInput = container.querySelector('#new-activity-end');
+          
+          if (startInput && editStart) startInput.value = editStart;
+          if (endInput && editEnd) endInput.value = editEnd;
+          
           if (input) {
             input.focus();
             input.setSelectionRange(input.value.length, input.value.length);
