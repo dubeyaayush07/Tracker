@@ -39,7 +39,8 @@ export async function renderPlan(container, params = {}) {
           ${act.notes ? `<div style="font-size:0.75rem;color:var(--text-2);margin-top:2px">${act.notes}</div>` : ''}
         </div>
         <div style="display:flex;gap:6px">
-          ${act.status !== 'skipped' ? `<button class="btn btn-xs btn-ghost skip-btn" data-id="${act.id}">Skip</button>` : `<button class="btn btn-xs btn-ghost unskip-btn" data-id="${act.id}">Undo</button>`}
+          <button class="btn btn-xs btn-ghost edit-act" data-id="${act.id}">Edit</button>
+          <button class="btn btn-xs btn-ghost dup-act" data-id="${act.id}">→ Tomorrow</button>
           <button class="btn btn-xs btn-danger delete-act" data-id="${act.id}">✕</button>
         </div>
       </div>
@@ -146,9 +147,7 @@ export async function renderPlan(container, params = {}) {
           </div>
         </div>
 
-        <div style="padding:0 16px">
-          <button class="btn btn-primary" id="save-plan-btn">Save Plan</button>
-        </div>
+
       </div>
     `;
   }
@@ -219,20 +218,44 @@ export async function renderPlan(container, params = {}) {
       });
     });
 
-    // Skip activity
-    container.querySelectorAll('.skip-btn').forEach(btn => {
+    // Edit activity
+    container.querySelectorAll('.edit-act').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
-        const act = activities.find(a => a.id === id);
-        if (act) { act.status = 'skipped'; savePlan(); mount(); }
+        const actIndex = activities.findIndex(a => a.id === id);
+        if (actIndex > -1) {
+          const act = activities[actIndex];
+          activities.splice(actIndex, 1);
+          newActivityText = act.label;
+          savePlan();
+          mount();
+          const input = container.querySelector('#new-activity-input');
+          if (input) {
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+          }
+        }
       });
     });
 
-    container.querySelectorAll('.unskip-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
+    // Duplicate activity
+    container.querySelectorAll('.dup-act').forEach(btn => {
+      btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         const act = activities.find(a => a.id === id);
-        if (act) { act.status = 'pending'; savePlan(); mount(); }
+        if (act) {
+          let d = new Date(targetDate);
+          d.setDate(d.getDate() + 1);
+          let nextDateStr = d.toISOString().split('T')[0];
+          
+          let nextPlan = await getPlanByDate(nextDateStr);
+          if (!nextPlan) {
+            nextPlan = { id: generateId(), date: nextDateStr, activities: [], updated_at: new Date().toISOString() };
+          }
+          nextPlan.activities.push({ ...act, id: generateId(), status: 'pending' });
+          await dbPut('plans', nextPlan);
+          showToast('Copied to next day');
+        }
       });
     });
 
@@ -349,11 +372,7 @@ export async function renderPlan(container, params = {}) {
       });
     });
 
-    // Save plan button
-    container.querySelector('#save-plan-btn')?.addEventListener('click', async () => {
-      await savePlan();
-      showToast('Plan saved');
-    });
+
   }
 
   mount();
