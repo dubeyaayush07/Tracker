@@ -648,11 +648,13 @@ select {
   border: 1px solid var(--border-2);
   color: var(--text);
   padding: 12px 20px;
-  border-radius: var(--radius-full);
+  border-radius: var(--radius);
   font-size: 0.875rem;
   font-weight: 500;
+  line-height: 1.4;
   z-index: 300;
-  white-space: nowrap;
+  max-width: 90vw;
+  text-align: center;
   opacity: 0;
   transition: all 250ms ease;
   pointer-events: none;

@@ -1,5 +1,5 @@
-import { dbGetByIndex, getSchedule, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList } from '../db.js';
-import { getToday, formatDate, formatTime, getCurrentScheduleBlock, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
+import { dbGetByIndex, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList } from '../db.js';
+import { getToday, formatDate, formatTime, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
 export async function renderToday(container) {
@@ -9,8 +9,7 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [schedule, checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights, lockdown24hEnd] = await Promise.all([
-    getSchedule(),
+  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights, lockdown24hEnd] = await Promise.all([
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
@@ -26,7 +25,6 @@ export async function renderToday(container) {
   const currentLockdown = lockdownState || (lockdownActive ? 'level1' : false);
   const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
-  const currentBlock = getCurrentScheduleBlock(schedule);
   const suggestedCp = getSuggestedCheckpoint(checkpoints);
 
   // Build checkpoint completion map
@@ -147,21 +145,7 @@ export async function renderToday(container) {
     `;
   }).join('');
 
-  // Build schedule timeline (compact, show 4-5 blocks)
-  const scheduleBlocks = schedule.map((block, i) => {
-    const isActive = currentBlock && currentBlock.id === block.id;
-    const isLast = i === schedule.length - 1;
-    return `
-      <div class="schedule-block">
-        <div class="block-time">${formatBlockTime(block.start)}</div>
-        <div class="block-dot">
-          <div class="block-dot-circle ${isActive ? 'active' : ''}"></div>
-          ${!isLast ? '<div class="block-dot-line"></div>' : ''}
-        </div>
-        <div class="block-content ${isActive ? 'active' : ''}">${block.label}</div>
-      </div>
-    `;
-  }).join('');
+
 
   let planSection = '';
   if (todayPlan && todayPlan.activities.length > 0) {
@@ -173,16 +157,19 @@ export async function renderToday(container) {
         <span style="font-size:0.75rem;color:var(--text-2);margin-right:16px">${doneCount}/${totalCount} done</span>
       </div>
       <div class="checkpoints-section" id="today-plan-card" style="cursor:pointer;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
-        ${todayPlan.activities.slice(0, 3).map(act => `
-          <div style="display:flex;align-items:center;gap:10px;opacity:${act.status !== 'pending' ? '0.5' : '1'}">
-            <div style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:${act.status === 'done' ? 'var(--text)' : 'transparent'};border-color:${act.status === 'done' ? 'var(--text)' : 'var(--border)'}">
+        ${todayPlan.activities.slice(0, 10).map(act => `
+          <div style="display:flex;align-items:flex-start;gap:10px;opacity:${act.status !== 'pending' ? '0.5' : '1'};margin-bottom:4px">
+            <div style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:${act.status === 'done' ? 'var(--text)' : 'transparent'};border-color:${act.status === 'done' ? 'var(--text)' : 'var(--border)'};margin-top:2px">
               ${act.status === 'done' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
               ${act.status === 'skipped' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>` : ''}
             </div>
-            <div style="font-size:0.875rem;${act.status === 'done' ? 'text-decoration:line-through' : ''}">${act.label}</div>
+            <div style="flex:1">
+              ${act.timeBlock ? `<div style="font-size:0.75rem;color:var(--primary);font-weight:600;margin-bottom:2px">${act.timeBlock}</div>` : ''}
+              <div style="font-size:0.875rem;${act.status === 'done' ? 'text-decoration:line-through' : ''}">${act.label}</div>
+            </div>
           </div>
         `).join('')}
-        ${todayPlan.activities.length > 3 ? `<div style="font-size:0.75rem;color:var(--text-3);margin-left:26px;margin-top:2px">+ ${todayPlan.activities.length - 3} more</div>` : ''}
+        ${todayPlan.activities.length > 10 ? `<div style="font-size:0.75rem;color:var(--text-3);margin-left:26px;margin-top:2px">+ ${todayPlan.activities.length - 10} more</div>` : ''}
       </div>
     `;
   } else {
@@ -214,15 +201,7 @@ export async function renderToday(container) {
         </div>
       </div>
 
-      ${currentBlock ? `
-        <div class="current-block-card">
-          <div class="current-block-indicator"></div>
-          <div>
-            <div class="current-block-label">${currentBlock.label}</div>
-            <div class="current-block-time">${formatBlockTime(currentBlock.start)} – ${formatBlockTime(currentBlock.end)}</div>
-          </div>
-        </div>
-      ` : ''}
+
 
       ${saturdayBanner}
       ${calmDayBanner}
@@ -237,10 +216,7 @@ export async function renderToday(container) {
 
       ${reflectPrompt}
 
-      <div class="section-header" style="margin-top:8px">
-        <span class="section-title">Today's Schedule</span>
-      </div>
-      <div class="schedule-section" style="padding: 8px 0">${scheduleBlocks}</div>
+
     </div>
 
     <button class="fab" id="fab-log" aria-label="Log now">

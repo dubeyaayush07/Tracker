@@ -34,6 +34,7 @@ export async function renderPlan(container, params = {}) {
             act.status === 'skipped' ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>` : ''}
         </div>
         <div class="activity-label ${act.status === 'done' ? 'done' : ''}" style="flex:1">
+          ${act.timeBlock ? `<div style="font-size:0.75rem;color:var(--primary);font-weight:600;margin-bottom:2px">${act.timeBlock}</div>` : ''}
           ${act.label}
           ${act.notes ? `<div style="font-size:0.75rem;color:var(--text-2);margin-top:2px">${act.notes}</div>` : ''}
         </div>
@@ -133,9 +134,16 @@ export async function renderPlan(container, params = {}) {
           ${activityList}
         </div>
 
-        <div style="padding:12px 16px;display:flex;gap:8px">
-          <input type="text" id="new-activity-input" placeholder="Add an activity (walk, gym, reading…)" value="${newActivityText}" style="flex:1">
-          <button class="btn btn-secondary btn-sm" id="add-activity-btn" style="flex-shrink:0;padding:12px 16px">Add</button>
+        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;gap:8px">
+            <input type="text" id="new-activity-input" placeholder="Add an activity (walk, gym, reading…)" value="${newActivityText}" style="flex:1;font-size:0.875rem">
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="time" id="new-activity-start" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <span style="color:var(--text-3);font-size:0.8125rem">to</span>
+            <input type="time" id="new-activity-end" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <button class="btn btn-secondary btn-sm" id="add-activity-btn" style="flex-shrink:0;padding:8px 16px">Add</button>
+          </div>
         </div>
 
         <div style="padding:0 16px">
@@ -244,8 +252,26 @@ export async function renderPlan(container, params = {}) {
 
     function addActivity() {
       const text = addInput?.value?.trim();
+      const start = container.querySelector('#new-activity-start')?.value;
+      const end = container.querySelector('#new-activity-end')?.value;
+      
       if (!text) return;
-      activities.push({ id: generateId(), label: text, status: 'pending', notes: '' });
+      
+      let timeBlock = null;
+      const formatTime = (timeStr) => {
+        const [h, m] = timeStr.split(':');
+        const date = new Date();
+        date.setHours(parseInt(h, 10), parseInt(m, 10));
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      };
+
+      if (start && end) {
+        timeBlock = `${formatTime(start)} – ${formatTime(end)}`;
+      } else if (start) {
+        timeBlock = formatTime(start);
+      }
+
+      activities.push({ id: generateId(), label: text, status: 'pending', notes: '', timeBlock });
       newActivityText = '';
       savePlan();
       mount();
