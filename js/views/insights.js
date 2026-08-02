@@ -175,15 +175,7 @@ export async function renderInsights(container) {
       return { label: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow], avg: parseFloat(avg.toFixed(1)) };
     });
 
-    // Gym effect: compare craving logs on days with gym vs without
-    const gymLogs = logs.filter(l => l.checkpoint === 'after_gym' && l.craving !== null);
-    const afterGymAvg = gymLogs.length 
-      ? (gymLogs.reduce((s, l) => s + l.craving, 0) / gymLogs.length).toFixed(1) 
-      : null;
-    const beforeGymLogs = logs.filter(l => l.checkpoint === 'end_of_work' && l.craving !== null);
-    const beforeGymAvg = beforeGymLogs.length
-      ? (beforeGymLogs.reduce((s, l) => s + l.craving, 0) / beforeGymLogs.length).toFixed(1)
-      : null;
+
 
     // Adherence effect
     const adherenceLogs = { yes: [], mostly: [], no: [] };
@@ -215,26 +207,7 @@ export async function renderInsights(container) {
         `}
       </div>
 
-      ${(afterGymAvg && beforeGymAvg) ? `
-        <div class="insight-card">
-          <div class="insight-card-title">Gym effect on urges</div>
-          <div style="display:flex;gap:12px">
-            <div class="stat-card" style="flex:1;margin:0">
-              <div class="stat-value">${beforeGymAvg}</div>
-              <div class="stat-label">Avg urge before gym</div>
-            </div>
-            <div class="stat-card" style="flex:1;margin:0">
-              <div class="stat-value" style="color:${parseFloat(afterGymAvg) < parseFloat(beforeGymAvg) ? 'var(--success)' : 'var(--text)'}">${afterGymAvg}</div>
-              <div class="stat-label">Avg urge after gym</div>
-            </div>
-          </div>
-          ${parseFloat(afterGymAvg) < parseFloat(beforeGymAvg) ? `
-            <div style="margin-top:12px;padding:10px 12px;background:var(--success-dim);border-radius:var(--radius-sm);font-size:0.8125rem;color:var(--success)">
-              Gym reduces urges by ${(parseFloat(beforeGymAvg) - parseFloat(afterGymAvg)).toFixed(1)} points on average
-            </div>
-          ` : ''}
-        </div>
-      ` : ''}
+
 
       <div class="insight-card">
         <div class="insight-card-title">Schedule adherence vs urge</div>
