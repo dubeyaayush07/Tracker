@@ -23,6 +23,10 @@ export async function renderToday(container) {
   const currentLockdown = lockdownActive;
   const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
+  if (lockdown24hEnd && lockdown24hEnd <= Date.now()) {
+    setSetting('lockdown_24h_end', null);
+  }
+
   const suggestedCp = getSuggestedCheckpoint(checkpoints);
 
   // Build checkpoint completion map
@@ -227,6 +231,7 @@ export async function renderToday(container) {
       if (remaining <= 0) {
         el.textContent = '00:00:00';
         clearInterval(window.calmDayTimer);
+        setSetting('lockdown_24h_end', null);
       } else {
         const h = Math.floor(remaining / 3600000);
         const m = Math.floor((remaining % 3600000) / 60000);
