@@ -177,16 +177,7 @@ export async function renderInsights(container) {
 
 
 
-    // Adherence effect
-    const adherenceLogs = { yes: [], mostly: [], no: [] };
-    logs.forEach(l => { 
-      if (l.craving !== null && adherenceLogs[l.adherence]) {
-        adherenceLogs[l.adherence].push(l.craving); 
-      }
-    });
-    const adherenceAvg = Object.fromEntries(
-      Object.entries(adherenceLogs).map(([k, v]) => [k, v.length ? (v.reduce((a,b) => a+b, 0) / v.length).toFixed(1) : '—'])
-    );
+
 
     return `
       <div class="insight-card">
@@ -209,24 +200,7 @@ export async function renderInsights(container) {
 
 
 
-      <div class="insight-card">
-        <div class="insight-card-title">Schedule adherence vs urge</div>
-        <div style="display:flex;gap:10px">
-          ${['yes','mostly','no'].map(k => `
-            <div class="stat-card" style="flex:1;margin:0">
-              <div class="stat-value" style="font-size:1.5rem">${adherenceAvg[k]}</div>
-              <div class="stat-label">${k.charAt(0).toUpperCase() + k.slice(1)} plan</div>
-            </div>
-          `).join('')}
-        </div>
-        ${adherenceLogs.no.length > 0 && adherenceLogs.yes.length > 0 ? `
-          <div style="margin-top:12px;padding:10px 12px;background:var(--primary-dim);border-radius:var(--radius-sm);font-size:0.8125rem;color:var(--text-2)">
-            ${parseFloat(adherenceAvg.yes) < parseFloat(adherenceAvg.no) ? 
-              `Following the plan correlates with lower urges (${(parseFloat(adherenceAvg.no) - parseFloat(adherenceAvg.yes)).toFixed(1)} point difference)` :
-              'Not enough data yet to see a clear adherence pattern'}
-          </div>
-        ` : ''}
-      </div>
+
     `;
   }
 
