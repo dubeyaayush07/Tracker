@@ -9,20 +9,18 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, lockdownState, lockdownL2End, insights, lockdown24hEnd] = await Promise.all([
+  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights, lockdown24hEnd] = await Promise.all([
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
     getReflectionByDate(today),
     getPlanByDate(today),
     getSetting('lockdown_active'),
-    getSetting('lockdown_state'),
-    getSetting('lockdown_l2_end'),
     getInsightsList(),
     getSetting('lockdown_24h_end')
   ]);
 
-  const currentLockdown = lockdownState || (lockdownActive ? 'level1' : false);
+  const currentLockdown = lockdownActive;
   const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
   const suggestedCp = getSuggestedCheckpoint(checkpoints);
@@ -46,18 +44,7 @@ export async function renderToday(container) {
   ` : '';
 
   let lockdownBtn = '';
-  if (currentLockdown === 'level2') {
-    lockdownBtn = `
-      <div class="banner" style="background:#4c1d95;color:#fff;border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 4px 12px rgba(76,29,149,0.3)">
-        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
-          <div style="font-weight:700;font-size:1.125rem;letter-spacing:0.5px">LEVEL 2 LOCKDOWN</div>
-          <div style="font-size:0.9375rem;opacity:0.95;line-height:1.4">Lie down and sleep for 30 minutes. Do not jump to conclusions.</div>
-          <div id="lockdown-timer" style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin:8px 0;text-shadow:0 2px 4px rgba(0,0,0,0.2)">--:--</div>
-          <button id="cancel-l2-btn" style="background:rgba(0,0,0,0.2);color:#fff;border:1px solid rgba(255,255,255,0.2);padding:8px 16px;border-radius:20px;font-size:0.8125rem;font-weight:600;cursor:pointer;backdrop-filter:blur(4px)">Cancel Lockdown</button>
-        </div>
-      </div>
-    `;
-  } else if (currentLockdown === 'level1') {
+  if (currentLockdown) {
     lockdownBtn = `
       <div class="banner banner-danger" style="background:var(--danger);color:#fff;display:flex;flex-direction:column;gap:12px;padding:12px">
         <div id="lockdown-btn" style="display:flex;align-items:center;gap:12px;cursor:pointer">
@@ -67,11 +54,6 @@ export async function renderToday(container) {
             <div style="font-size:0.8125rem;opacity:0.9;margin-top:2px">Tap to disable</div>
           </div>
         </div>
-        <div style="height:1px;background:rgba(255,255,255,0.2)"></div>
-        <button id="escalate-l2-btn" style="background:rgba(0,0,0,0.15);color:#fff;border:none;padding:10px;border-radius:var(--radius-sm);font-size:0.875rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-          Escalate to Level 2 (Sleep Mode)
-        </button>
       </div>
     `;
   } else {
@@ -148,6 +130,11 @@ export async function renderToday(container) {
 
 
   let planSection = '';
+  const dayNote = todayPlan?.dayNote || '';
+  const dayNoteSection = dayNote ? `
+    <div style="margin:0 16px 12px;padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--primary);border-radius:var(--radius);font-size:0.875rem;color:var(--text);font-weight:500;white-space:pre-wrap">${dayNote}</div>
+  ` : '';
+
   if (todayPlan && todayPlan.activities.length > 0) {
     const doneCount = todayPlan.activities.filter(a => a.status === 'done').length;
     const totalCount = todayPlan.activities.length;
@@ -156,6 +143,7 @@ export async function renderToday(container) {
         <span class="section-title">Today's Plan</span>
         <span style="font-size:0.75rem;color:var(--text-2);margin-right:16px">${doneCount}/${totalCount} done</span>
       </div>
+      ${dayNoteSection}
       <div class="checkpoints-section" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
         ${todayPlan.activities.slice(0, 10).map(act => `
           <div class="today-plan-item" data-id="${act.id}" style="display:flex;align-items:flex-start;gap:10px;opacity:${act.status !== 'pending' ? '0.5' : '1'};margin-bottom:4px;cursor:pointer">
@@ -176,9 +164,10 @@ export async function renderToday(container) {
       <div class="section-header">
         <span class="section-title">Today's Plan</span>
       </div>
-      <div class="checkpoints-section" id="today-plan-card" style="cursor:pointer;padding:16px;text-align:center">
+      ${dayNoteSection}
+      <div class="checkpoints-section" style="padding:16px;text-align:center">
         <div style="font-size:0.875rem;color:var(--text-2);margin-bottom:4px">No activities planned</div>
-        <div style="font-size:0.8125rem;color:var(--primary);font-weight:500">Tap to create plan</div>
+        <div style="font-size:0.8125rem;color:var(--primary);font-weight:500">Go to Plan to add some</div>
       </div>
     `;
   }
@@ -223,28 +212,7 @@ export async function renderToday(container) {
     </button>
   `;
 
-  // Setup timer if level 2
-  if (window.lockdownL2Timer) clearInterval(window.lockdownL2Timer);
-  if (currentLockdown === 'level2' && lockdownL2End) {
-    const updateTimer = () => {
-      const el = container.querySelector('#lockdown-timer');
-      if (!el) {
-        clearInterval(window.lockdownL2Timer);
-        return;
-      }
-      const remaining = lockdownL2End - Date.now();
-      if (remaining <= 0) {
-        el.textContent = '00:00';
-        clearInterval(window.lockdownL2Timer);
-      } else {
-        const m = Math.floor(remaining / 60000);
-        const s = Math.floor((remaining % 60000) / 1000);
-        el.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-      }
-    };
-    updateTimer();
-    window.lockdownL2Timer = setInterval(updateTimer, 1000);
-  }
+
 
   // Setup 24h wait timer
   if (window.calmDayTimer) clearInterval(window.calmDayTimer);
@@ -304,7 +272,7 @@ export async function renderToday(container) {
     if (level === false) {
       const notifications = await reg.getNotifications({ tag: 'lockdown-notification' });
       notifications.forEach(n => n.close());
-    } else if (level === 'level1') {
+    } else if (level === true) {
       reg.showNotification('🚨 Lockdown Active', {
         body: 'No major decisions. Do not jump to conclusions. Wait until you are regulated.',
         icon: './icon-192.png',
@@ -312,41 +280,15 @@ export async function renderToday(container) {
         tag: 'lockdown-notification',
         vibrate: [200, 100, 200]
       });
-    } else if (level === 'level2') {
-      reg.showNotification('💤 Level 2 Lockdown', {
-        body: 'Lie down and sleep for 30 minutes. Do not jump to conclusions.',
-        icon: './icon-192.png',
-        requireInteraction: true,
-        tag: 'lockdown-notification',
-        vibrate: [200, 100, 200]
-      });
     }
+
   }
 
-  // Toggle Level 1 / Off
+  // Toggle Lockdown / Off
   container.querySelector('#lockdown-btn')?.addEventListener('click', async () => {
-    const newState = currentLockdown === false ? 'level1' : false;
-    await setSetting('lockdown_state', newState);
-    await setSetting('lockdown_active', newState === 'level1');
+    const newState = currentLockdown === false ? true : false;
+    await setSetting('lockdown_active', newState);
     await updateLockdownNotification(newState);
-    renderToday(container);
-  });
-
-  // Escalate to Level 2
-  container.querySelector('#escalate-l2-btn')?.addEventListener('click', async () => {
-    await setSetting('lockdown_state', 'level2');
-    await setSetting('lockdown_active', false);
-    await setSetting('lockdown_l2_end', Date.now() + (30 * 60 * 1000));
-    await updateLockdownNotification('level2');
-    renderToday(container);
-  });
-
-  // Cancel Level 2
-  container.querySelector('#cancel-l2-btn')?.addEventListener('click', async () => {
-    await setSetting('lockdown_state', false);
-    await setSetting('lockdown_active', false);
-    await setSetting('lockdown_l2_end', null);
-    await updateLockdownNotification(false);
     renderToday(container);
   });
 }

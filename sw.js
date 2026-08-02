@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracker-v1122';
+const CACHE_NAME = 'tracker-v1130';
 const ASSETS = [
   './',
   './index.html',
@@ -12,7 +12,6 @@ const ASSETS = [
   './js/views/today.js',
   './js/views/log.js',
   './js/views/reflect.js',
-  './js/views/schedule.js',
   './js/views/plan.js',
   './js/views/insights.js',
   './js/views/settings.js',

@@ -1,4 +1,4 @@
-import { exportAllData, importAllData, dbClear, getSetting, setSetting, getCheckpoints, DEFAULT_CHECKPOINTS, generateId, getInsightsList } from '../db.js';
+import { exportAllData, importAllData, dbClear, getSetting, setSetting, getCheckpoints, DEFAULT_CHECKPOINTS, generateId, getInsightsList, getBaselineRoutine } from '../db.js';
 import { showToast } from '../app.js';
 
 export async function renderSettings(container) {
@@ -8,11 +8,18 @@ export async function renderSettings(container) {
   const insightsList = await getInsightsList();
   let editableInsights = [...insightsList];
 
+  const baselineRoutine = await getBaselineRoutine();
+  let editableBaseline = baselineRoutine.map(b => ({ ...b }));
+
   // Last backup check
   const lastBackup = await getSetting('last_backup');
   const daysSinceBackup = lastBackup 
     ? Math.floor((Date.now() - new Date(lastBackup).getTime()) / 86400000)
     : null;
+
+  let insightsExpanded = false;
+  let checkpointsExpanded = false;
+  let baselineExpanded = false;
 
   function buildPage() {
     const backupStatus = daysSinceBackup === null 
@@ -40,6 +47,19 @@ export async function renderSettings(container) {
         </div>
       </div>
     `).join('');
+
+    const baselineRows = editableBaseline.map((item, i) => `
+      <div class="settings-row" style="align-items:center;gap:8px">
+        <input type="text" value="${item.label.replace(/"/g, '&quot;')}" data-bl-idx="${i}" data-bl-field="label" placeholder="Activity name" style="flex:1">
+        <input type="time" value="${item.startTime || ''}" data-bl-idx="${i}" data-bl-field="startTime" style="width:90px;font-size:0.8125rem;padding:6px">
+        <input type="time" value="${item.endTime || ''}" data-bl-idx="${i}" data-bl-field="endTime" style="width:90px;font-size:0.8125rem;padding:6px">
+        <button class="btn btn-icon btn-danger delete-bl" data-idx="${i}" aria-label="Delete">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>
+    `).join('');
+
+    const chevron = (expanded) => `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${expanded ? '180deg' : '0deg'});transition:0.2s"><polyline points="6 9 12 15 18 9"/></svg>`;
 
     return `
       <div class="settings-view view-enter">
@@ -73,41 +93,81 @@ export async function renderSettings(container) {
           </div>
         </div>
 
-        <!-- INSIGHTS BANNER -->
-        <div class="section-header"><span class="section-title">Insights Banner</span></div>
-        <div class="settings-section" id="insights-list">
-          ${editableInsights.map((insight, i) => `
-            <div class="settings-row" style="align-items:center;gap:10px">
-              <input type="text" value="${insight.replace(/"/g, '&quot;')}" data-insight-idx="${i}" style="flex:1" placeholder="Add a personal insight...">
-              <button class="btn btn-icon btn-danger delete-insight" data-idx="${i}" aria-label="Delete insight">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        <!-- BASELINE ROUTINE (Collapsible) -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 16px 16px;overflow:hidden">
+          <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" id="toggle-baseline">
+            <div style="font-weight:600;font-size:0.9375rem">Baseline Routine</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:0.75rem;color:var(--text-3)">${editableBaseline.length} tasks</span>
+              ${chevron(baselineExpanded)}
+            </div>
+          </div>
+          <div style="display:${baselineExpanded ? 'block' : 'none'}">
+            <div style="padding:0 16px 8px;font-size:0.75rem;color:var(--text-3)">These tasks auto-populate when you tap "Load Routine" on the Today screen.</div>
+            ${baselineRows}
+            <div class="settings-row" style="padding:12px 16px">
+              <button class="btn btn-secondary" id="add-bl-btn" style="width:100%;gap:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add task
               </button>
             </div>
-          `).join('')}
-          <div class="settings-row" style="padding:12px 16px">
-            <button class="btn btn-secondary" id="add-insight-btn" style="width:100%;gap:8px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add insight
-            </button>
+            <div style="padding:0 16px 12px">
+              <button class="btn btn-primary" id="save-bl-btn">Save Baseline</button>
+            </div>
           </div>
-        </div>
-        <div style="padding:0 16px 8px">
-          <button class="btn btn-primary" id="save-insights-btn">Save Insights</button>
         </div>
 
-        <!-- CHECKPOINTS -->
-        <div class="section-header"><span class="section-title">Checkpoints</span></div>
-        <div class="settings-section" id="cp-list">
-          ${cpRows}
-          <div class="settings-row" style="padding:12px 16px">
-            <button class="btn btn-secondary" id="add-cp-btn" style="width:100%;gap:8px">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add checkpoint
-            </button>
+        <!-- INSIGHTS (Collapsible) -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 16px 16px;overflow:hidden">
+          <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" id="toggle-insights">
+            <div style="font-weight:600;font-size:0.9375rem">Insights Banner</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:0.75rem;color:var(--text-3)">${editableInsights.length} items</span>
+              ${chevron(insightsExpanded)}
+            </div>
+          </div>
+          <div style="display:${insightsExpanded ? 'block' : 'none'}">
+            ${editableInsights.map((insight, i) => `
+              <div class="settings-row" style="align-items:center;gap:10px">
+                <input type="text" value="${insight.replace(/"/g, '&quot;')}" data-insight-idx="${i}" style="flex:1" placeholder="Add a personal insight...">
+                <button class="btn btn-icon btn-danger delete-insight" data-idx="${i}" aria-label="Delete insight">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                </button>
+              </div>
+            `).join('')}
+            <div class="settings-row" style="padding:12px 16px">
+              <button class="btn btn-secondary" id="add-insight-btn" style="width:100%;gap:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add insight
+              </button>
+            </div>
+            <div style="padding:0 16px 12px">
+              <button class="btn btn-primary" id="save-insights-btn">Save Insights</button>
+            </div>
           </div>
         </div>
-        <div style="padding:0 16px 8px">
-          <button class="btn btn-primary" id="save-cp-btn">Save Checkpoints</button>
+
+        <!-- CHECKPOINTS (Collapsible) -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 16px 16px;overflow:hidden">
+          <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer" id="toggle-checkpoints">
+            <div style="font-weight:600;font-size:0.9375rem">Checkpoints</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:0.75rem;color:var(--text-3)">${editableCheckpoints.length} items</span>
+              ${chevron(checkpointsExpanded)}
+            </div>
+          </div>
+          <div style="display:${checkpointsExpanded ? 'block' : 'none'}">
+            ${cpRows}
+            <div class="settings-row" style="padding:12px 16px">
+              <button class="btn btn-secondary" id="add-cp-btn" style="width:100%;gap:8px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add checkpoint
+              </button>
+            </div>
+            <div style="padding:0 16px 12px">
+              <button class="btn btn-primary" id="save-cp-btn">Save Checkpoints</button>
+            </div>
+          </div>
         </div>
 
         <!-- DANGER -->
@@ -124,7 +184,7 @@ export async function renderSettings(container) {
 
         <!-- ABOUT -->
         <div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:0.75rem">
-          <p>Tracker v1.12.2 — All data stays on your device</p>
+          <p>Tracker v1.13.0 — All data stays on your device</p>
           <p style="margin-top:4px">Built as a PWA. Add to home screen from your browser menu.</p>
         </div>
       </div>
@@ -137,6 +197,11 @@ export async function renderSettings(container) {
   }
 
   function bindEvents() {
+    // Toggle collapsible sections
+    container.querySelector('#toggle-insights')?.addEventListener('click', () => { insightsExpanded = !insightsExpanded; mount(); });
+    container.querySelector('#toggle-checkpoints')?.addEventListener('click', () => { checkpointsExpanded = !checkpointsExpanded; mount(); });
+    container.querySelector('#toggle-baseline')?.addEventListener('click', () => { baselineExpanded = !baselineExpanded; mount(); });
+
     // Edit checkpoint fields
     container.querySelectorAll('input[data-cp][data-field]').forEach(input => {
       input.addEventListener('change', () => {
@@ -198,6 +263,34 @@ export async function renderSettings(container) {
     container.querySelector('#save-cp-btn')?.addEventListener('click', async () => {
       await setSetting('checkpoints', editableCheckpoints);
       showToast('Checkpoints saved');
+    });
+
+    // ----- BASELINE ROUTINE -----
+    container.querySelectorAll('input[data-bl-idx][data-bl-field]').forEach(input => {
+      input.addEventListener('change', () => {
+        const idx = parseInt(input.dataset.blIdx);
+        editableBaseline[idx][input.dataset.blField] = input.value;
+      });
+    });
+
+    container.querySelectorAll('.delete-bl').forEach(btn => {
+      btn.addEventListener('click', () => {
+        editableBaseline.splice(parseInt(btn.dataset.idx), 1);
+        mount();
+      });
+    });
+
+    container.querySelector('#add-bl-btn')?.addEventListener('click', () => {
+      editableBaseline.push({ label: '', startTime: '', endTime: '' });
+      mount();
+    });
+
+    container.querySelector('#save-bl-btn')?.addEventListener('click', async () => {
+      const valid = editableBaseline.filter(b => b.label.trim() !== '');
+      editableBaseline = valid;
+      await setSetting('baseline_routine', valid);
+      showToast('Baseline routine saved');
+      mount();
     });
 
     // Export

@@ -143,6 +143,10 @@ export async function getInsightsList() {
   return (await getSetting('insights')) || DEFAULT_INSIGHTS;
 }
 
+export async function getBaselineRoutine() {
+  return (await getSetting('baseline_routine')) || [];
+}
+
 // Reflection helper: get by date
 export async function getReflectionByDate(date) {
   const all = await dbGetAll('reflections');
@@ -211,6 +215,7 @@ export async function exportAllData() {
   const schedule = await getSetting('schedule');
   const checkpoints = await getSetting('checkpoints');
   const insights = await getSetting('insights');
+  const baseline_routine = await getSetting('baseline_routine');
   return {
     exportedAt: new Date().toISOString(),
     version: 1,
@@ -219,7 +224,7 @@ export async function exportAllData() {
     plans,
     weekly_goals,
     worries,
-    settings: { schedule, checkpoints, insights }
+    settings: { schedule, checkpoints, insights, baseline_routine }
   };
 }
 
@@ -234,4 +239,5 @@ export async function importAllData(data) {
   if (data.settings?.schedule) await setSetting('schedule', data.settings.schedule);
   if (data.settings?.checkpoints) await setSetting('checkpoints', data.settings.checkpoints);
   if (data.settings?.insights) await setSetting('insights', data.settings.insights);
+  if (data.settings?.baseline_routine) await setSetting('baseline_routine', data.settings.baseline_routine);
 }

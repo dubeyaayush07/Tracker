@@ -1,20 +1,20 @@
-import { dbPut, getPlanByDate, generateId, getWeeklyGoalsByWeek, saveWeeklyGoals } from '../db.js';
+import { dbPut, getPlanByDate, generateId, getWeeklyGoalsByWeek, saveWeeklyGoals, getBaselineRoutine } from '../db.js';
 import { getToday, getTomorrow, getNextSunday, getNextMonday, isSaturday, formatDate, parseDateKey, getWeekStart } from '../utils/time.js';
 import { showToast } from '../app.js';
 
 export async function renderPlan(container, params = {}) {
-  // Default: if Saturday suggest Sunday, otherwise suggest tomorrow
-  let targetDate = params.date || (isSaturday() ? getNextSunday() : getTomorrow());
+  let targetDate = params.date || getToday();
   let plan = await getPlanByDate(targetDate);
   let activities = plan ? [...plan.activities] : [];
+  let dayNote = plan?.dayNote || '';
   let newActivityText = '';
 
   let weekStart = getWeekStart(targetDate);
   let weeklyData = await getWeeklyGoalsByWeek(weekStart);
   let weeklyGoals = weeklyData ? [...weeklyData.goals] : [];
   let newGoalText = '';
-  // Collapse by default if max goals reached, otherwise expand
-  let weeklyExpanded = weeklyGoals.length < 4;
+  // Collapse by default to save space
+  let weeklyExpanded = false;
 
   function buildPage() {
     const dateObj = parseDateKey(targetDate);
@@ -108,7 +108,7 @@ export async function renderPlan(container, params = {}) {
             <button class="cp-chip ${targetDate === getToday() ? 'active' : ''}" data-date="${getToday()}" style="border-radius:20px;padding:6px 14px;font-size:0.8125rem">Today</button>
             <button class="cp-chip ${targetDate === getTomorrow() ? 'active' : ''}" data-date="${getTomorrow()}" style="border-radius:20px;padding:6px 14px;font-size:0.8125rem">Tomorrow</button>
             ${isSaturday() ? `<button class="cp-chip ${targetDate === getNextSunday() ? 'active' : ''}" data-date="${getNextSunday()}" style="border-radius:20px;padding:6px 14px;font-size:0.8125rem">Sunday</button>` : ''}
-            <input type="date" id="custom-date-picker" value="${targetDate}" style="width:130px;font-size:0.8125rem;padding:6px 10px;border-radius:20px">
+            <input type="date" id="custom-date-picker" value="${targetDate}" style="width:130px;font-size:0.8125rem;padding:6px 10px;border-radius:20px;color-scheme:dark;background:var(--surface);border:1px solid var(--border);color:var(--text)">
           </div>
         </div>
 
@@ -131,23 +131,31 @@ export async function renderPlan(container, params = {}) {
           </div>
         ` : ''}
 
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px;overflow:hidden">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:0 16px 8px 16px">
+          <div style="font-weight:600;font-size:0.9375rem">Activities</div>
+          <button class="btn btn-secondary btn-sm" id="load-routine-btn" style="padding:4px 10px;font-size:0.75rem;height:auto">Load Routine</button>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 16px;overflow:hidden">
           ${activityList}
-        </div>
-
-        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:8px">
-          <div style="display:flex;gap:8px">
-            <input type="text" id="new-activity-input" placeholder="Add an activity (walk, gym, reading…)" value="${newActivityText}" style="flex:1;font-size:0.875rem">
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="time" id="new-activity-start" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)">
-            <span style="color:var(--text-3);font-size:0.8125rem">to</span>
-            <input type="time" id="new-activity-end" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)">
-            <button class="btn btn-secondary btn-sm" id="add-activity-btn" style="flex-shrink:0;padding:8px 16px">Add</button>
+          <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;background:var(--surface-2)">
+            <input type="text" id="new-activity-input" placeholder="Add an activity (walk, gym, reading…)" value="${newActivityText}" style="width:100%;font-size:0.875rem">
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="time" id="new-activity-start" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);color-scheme:dark;background:var(--bg);color:var(--text)">
+              <span style="color:var(--text-3);font-size:0.8125rem">to</span>
+              <input type="time" id="new-activity-end" style="flex:1;font-size:0.8125rem;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);color-scheme:dark;background:var(--bg);color:var(--text)">
+              <button class="btn btn-secondary btn-sm" id="add-activity-btn" style="flex-shrink:0;padding:8px 16px">Add</button>
+            </div>
           </div>
         </div>
 
-
+        <div style="margin:0 16px 16px">
+          <div style="font-weight:600;font-size:0.9375rem;margin-bottom:8px">Day Note</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <textarea id="day-note-input" placeholder="Shows to watch, reminders, things to be mindful of…" style="width:100%;min-height:64px;font-size:0.8125rem;padding:10px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);color:var(--text);resize:vertical;font-family:inherit">${dayNote}</textarea>
+            <button class="btn btn-secondary btn-sm" id="save-note-btn" style="align-self:flex-end;padding:6px 16px">Save Note</button>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -199,7 +207,8 @@ export async function renderPlan(container, params = {}) {
   async function refreshData() {
     plan = await getPlanByDate(targetDate);
     activities = plan ? [...plan.activities] : [];
-    
+    dayNote = plan?.dayNote || '';
+
     weekStart = getWeekStart(targetDate);
     weeklyData = await getWeeklyGoalsByWeek(weekStart);
     weeklyGoals = weeklyData ? [...weeklyData.goals] : [];
@@ -218,6 +227,48 @@ export async function renderPlan(container, params = {}) {
     container.querySelector('#custom-date-picker')?.addEventListener('change', async (e) => {
       targetDate = e.target.value;
       await refreshData();
+      mount();
+    });
+
+    // Save note
+    container.querySelector('#save-note-btn')?.addEventListener('click', async () => {
+      const note = container.querySelector('#day-note-input')?.value?.trim() || '';
+      const entry = {
+        id: plan?.id || generateId(),
+        date: targetDate,
+        activities: [...activities],
+        dayNote: note,
+        updated_at: new Date().toISOString(),
+      };
+      await dbPut('plans', entry);
+      plan = entry;
+      dayNote = note;
+      showToast('Note saved');
+    });
+
+    // Load Routine
+    container.querySelector('#load-routine-btn')?.addEventListener('click', async () => {
+      const baseline = await getBaselineRoutine();
+      if (!baseline || baseline.length === 0) {
+        showToast('No baseline routine set. Go to Settings to create one.');
+        return;
+      }
+      const formatTime = (timeStr) => {
+        if (!timeStr) return null;
+        const [h, m] = timeStr.split(':');
+        const date = new Date();
+        date.setHours(parseInt(h, 10), parseInt(m, 10));
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      };
+      const newActivities = baseline.map(b => {
+        let timeBlock = null;
+        if (b.startTime && b.endTime) timeBlock = `${formatTime(b.startTime)} – ${formatTime(b.endTime)}`;
+        else if (b.startTime) timeBlock = formatTime(b.startTime);
+        return { id: generateId(), label: b.label, status: 'pending', notes: '', timeBlock };
+      });
+      activities = [...activities, ...newActivities];
+      await savePlan();
+      showToast(`${newActivities.length} routine tasks loaded`);
       mount();
     });
 
