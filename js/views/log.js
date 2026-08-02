@@ -64,25 +64,7 @@ export async function renderLog(container, params = {}) {
             ${makeSlider('mood', 'Mood', 1, 10, 5, 'Very low', 'Very positive')}
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Following the plan? <span style="color:var(--text-3);font-weight:400;text-transform:none">(optional)</span></label>
-            <div class="segment-group" id="adherence-group">
-              <button class="segment-btn" data-val="yes">Yes</button>
-              <button class="segment-btn" data-val="mostly">Mostly</button>
-              <button class="segment-btn" data-val="no">No</button>
-            </div>
-          </div>
 
-          <div id="deviation-section" style="display:none" class="form-group">
-            <label class="form-label">What happened?</label>
-            <select id="deviation-reason">
-              <option value="">Select reason…</option>
-              <option value="skipped">Skipped an activity</option>
-              <option value="free_time">Unplanned free time appeared</option>
-              <option value="interruption">External interruption</option>
-              <option value="chose">Chose to deviate (that's okay)</option>
-            </select>
-          </div>
 
           ${isCravingMoment ? `
             <div class="form-group" id="negotiation-section">
@@ -227,28 +209,6 @@ export async function renderLog(container, params = {}) {
       });
     }
 
-    // Adherence segments
-    const adherenceGroup = container.querySelector('#adherence-group');
-    let currentAdherence = null;
-    if (adherenceGroup) {
-      adherenceGroup.querySelectorAll('.segment-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          // Toggle off if clicking the already active button
-          if (btn.classList.contains('active')) {
-            btn.classList.remove('active');
-            currentAdherence = null;
-            const devSection = container.querySelector('#deviation-section');
-            if (devSection) devSection.style.display = 'none';
-          } else {
-            adherenceGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentAdherence = btn.dataset.val;
-            const devSection = container.querySelector('#deviation-section');
-            if (devSection) devSection.style.display = currentAdherence === 'no' ? '' : 'none';
-          }
-        });
-      });
-    }
 
     // Save
     container.querySelector('#save-log-btn')?.addEventListener('click', async () => {
@@ -257,12 +217,8 @@ export async function renderLog(container, params = {}) {
       const craving = include ? parseInt(container.querySelector('#range-craving')?.value || 1) : null;
       const mood = include ? parseInt(container.querySelector('#range-mood')?.value || 5) : null;
       const notes = container.querySelector('#log-notes')?.value?.trim() || '';
-      const deviation = container.querySelector('#deviation-reason')?.value || '';
       const sleepHours = parseFloat(container.querySelector('#sleep-hours')?.value || 0) || null;
       const sleepQuality = parseInt(container.querySelector('#range-sleep-quality')?.value || 3);
-
-      const adherenceBtn = container.querySelector('#adherence-group .segment-btn.active');
-      const adherence = adherenceBtn ? adherenceBtn.dataset.val : null;
 
       const tapeText = container.querySelector('#tape-forward-text')?.value?.trim();
       const calmReason = container.querySelector('#calm-day-reason')?.value?.trim();
@@ -286,8 +242,6 @@ export async function renderLog(container, params = {}) {
         energy,
         craving,
         mood,
-        adherence,
-        deviation_reason: adherence === 'no' ? deviation : null,
         sleep_hours: sleepHours,
         sleep_quality: container.querySelector('#range-sleep-quality') ? sleepQuality : null,
         notes: finalNotes,
