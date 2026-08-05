@@ -49,13 +49,19 @@ export async function renderSettings(container) {
     `).join('');
 
     const baselineRows = editableBaseline.map((item, i) => `
-      <div class="settings-row" style="align-items:center;gap:8px">
-        <input type="text" value="${item.label.replace(/"/g, '&quot;')}" data-bl-idx="${i}" data-bl-field="label" placeholder="Activity name" style="flex:1">
-        <input type="time" value="${item.startTime || ''}" data-bl-idx="${i}" data-bl-field="startTime" style="width:90px;font-size:0.8125rem;padding:6px">
-        <input type="time" value="${item.endTime || ''}" data-bl-idx="${i}" data-bl-field="endTime" style="width:90px;font-size:0.8125rem;padding:6px">
-        <button class="btn btn-icon btn-danger delete-bl" data-idx="${i}" aria-label="Delete">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>
+      <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:10px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" value="${item.label.replace(/"/g, '&quot;')}" data-bl-idx="${i}" data-bl-field="label" placeholder="Activity name" style="flex:1">
+          <button class="btn btn-icon btn-danger delete-bl" data-idx="${i}" aria-label="Delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="font-size:0.75rem;color:var(--text-2);width:50px;flex-shrink:0">Time</div>
+          <input type="time" value="${item.startTime || ''}" data-bl-idx="${i}" data-bl-field="startTime" style="flex:1;font-size:0.875rem;padding:6px">
+          <span style="color:var(--text-3)">–</span>
+          <input type="time" value="${item.endTime || ''}" data-bl-idx="${i}" data-bl-field="endTime" style="flex:1;font-size:0.875rem;padding:6px">
+        </div>
       </div>
     `).join('');
 
