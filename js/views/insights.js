@@ -161,10 +161,17 @@ export async function renderInsights(container) {
   }
 
   function renderPatterns() {
-    // Average craving by checkpoint
+    // Average urge by checkpoint
     const cpAvg = checkpoints.map(cp => {
       const cpLogs = logs.filter(l => l.checkpoint === cp.id && l.craving !== null);
       const avg = cpLogs.length > 0 ? cpLogs.reduce((s, l) => s + l.craving, 0) / cpLogs.length : 0;
+      return { label: cp.label, avg: parseFloat(avg.toFixed(1)), count: cpLogs.length };
+    });
+
+    // Average pressure by checkpoint
+    const cpPressureAvg = checkpoints.map(cp => {
+      const cpLogs = logs.filter(l => l.checkpoint === cp.id && l.pressure !== undefined && l.pressure !== null);
+      const avg = cpLogs.length > 0 ? cpLogs.reduce((s, l) => s + l.pressure, 0) / cpLogs.length : 0;
       return { label: cp.label, avg: parseFloat(avg.toFixed(1)), count: cpLogs.length };
     });
 
@@ -198,6 +205,24 @@ export async function renderInsights(container) {
         `}
       </div>
 
+      <div class="insight-card">
+        <div class="insight-card-title">Average pressure by checkpoint</div>
+        ${logs.length < 3 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">Log more entries to see patterns</div>` : `
+          <div class="chart-wrap"><canvas id="chart-cp-pressure-bar"></canvas></div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+            ${cpPressureAvg.map(c => `
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="font-size:0.8125rem;width:110px;color:var(--text-2)">${c.label}</div>
+                <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:${c.count > 0 ? (c.avg/10*100) : 0}%;background:var(--primary);border-radius:3px;transition:width 0.4s ease"></div>
+                </div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.875rem;color:var(--primary);width:28px;text-align:right">${c.count > 0 ? c.avg : '—'}</div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+
 
 
 
@@ -216,9 +241,11 @@ export async function renderInsights(container) {
         const dayLogs = logsByDate[d] || [];
         const cravingLogs = dayLogs.filter(l => l.craving !== null);
         const energyLogs = dayLogs.filter(l => l.energy !== null);
+        const pressureLogs = dayLogs.filter(l => l.pressure !== undefined && l.pressure !== null);
         const ref = reflMap[d];
         const avgC = cravingLogs.length ? (cravingLogs.reduce((s,l) => s+l.craving, 0) / cravingLogs.length).toFixed(1) : '—';
         const avgE = energyLogs.length ? (energyLogs.reduce((s,l) => s+l.energy, 0) / energyLogs.length).toFixed(1) : '—';
+        const avgP = pressureLogs.length ? (pressureLogs.reduce((s,l) => s+l.pressure, 0) / pressureLogs.length).toFixed(1) : '—';
         const peakC = ref?.peak_urge ?? '—';
         const slipped = ref ? (ref.slipped ? '✗' : '✓') : '—';
         const slippedColor = ref ? (ref.slipped ? 'var(--danger)' : 'var(--success)') : 'var(--text-3)';
@@ -237,6 +264,10 @@ export async function renderInsights(container) {
               <div class="day-stat">
                 <div class="day-stat-val">${avgE}</div>
                 <div class="day-stat-key">Energy</div>
+              </div>
+              <div class="day-stat">
+                <div class="day-stat-val">${avgP}</div>
+                <div class="day-stat-key">Pressure</div>
               </div>
               <div class="day-stat">
                 <div class="day-stat-val">${peakC}</div>
@@ -361,6 +392,27 @@ export async function renderInsights(container) {
             datasets: [{
               data: cpData,
               backgroundColor: cpData.map(v => v >= 7 ? 'rgba(255,107,122,0.7)' : v >= 4 ? 'rgba(255,169,77,0.7)' : 'rgba(139,124,246,0.7)'),
+              borderRadius: 6,
+            }]
+          },
+          options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, min: 0, max: 10 } } }
+        });
+      }
+
+      const cpPressureCanvas = container.querySelector('#chart-cp-pressure-bar');
+      if (cpPressureCanvas) {
+        const cpPressureData = checkpoints.map(cp => {
+          const cpLogs = logs.filter(l => l.checkpoint === cp.id && l.pressure !== undefined && l.pressure !== null);
+          return cpLogs.length ? parseFloat((cpLogs.reduce((s,l) => s+l.pressure, 0) / cpLogs.length).toFixed(1)) : 0;
+        });
+
+        chartInstances['cpPressure'] = new Chart(cpPressureCanvas, {
+          type: 'bar',
+          data: {
+            labels: checkpoints.map(c => c.label),
+            datasets: [{
+              data: cpPressureData,
+              backgroundColor: cpPressureData.map(v => v >= 7 ? 'rgba(255,107,122,0.7)' : v >= 4 ? 'rgba(255,169,77,0.7)' : 'rgba(139,124,246,0.7)'),
               borderRadius: 6,
             }]
           },

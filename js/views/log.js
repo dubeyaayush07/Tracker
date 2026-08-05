@@ -60,6 +60,7 @@ export async function renderLog(container, params = {}) {
           </label>
           <div id="stats-section" style="transition:opacity 0.2s">
             ${makeSlider('energy', 'Energy', 1, 10, 5, 'Exhausted', 'Energetic')}
+            ${makeSlider('pressure', 'Pressure', 1, 10, 5, 'Relaxed', 'High pressure')}
             ${makeSlider('craving', 'Urge', 1, 10, 1, 'None', 'Overwhelming')}
             ${makeSlider('mood', 'Mood', 1, 10, 5, 'Very low', 'Very positive')}
           </div>
@@ -155,7 +156,7 @@ export async function renderLog(container, params = {}) {
     }
 
     // Slider live values
-    ['energy', 'craving', 'mood', 'sleep-quality'].forEach(id => {
+    ['energy', 'pressure', 'craving', 'mood', 'sleep-quality'].forEach(id => {
       const range = container.querySelector(`#range-${id}`);
       const val = container.querySelector(`#val-${id}`);
       if (range && val) {
@@ -214,6 +215,7 @@ export async function renderLog(container, params = {}) {
     container.querySelector('#save-log-btn')?.addEventListener('click', async () => {
       const include = container.querySelector('#include-stats')?.checked !== false;
       const energy = include ? parseInt(container.querySelector('#range-energy')?.value || 5) : null;
+      const pressure = include ? parseInt(container.querySelector('#range-pressure')?.value || 5) : null;
       const craving = include ? parseInt(container.querySelector('#range-craving')?.value || 1) : null;
       const mood = include ? parseInt(container.querySelector('#range-mood')?.value || 5) : null;
       const notes = container.querySelector('#log-notes')?.value?.trim() || '';
@@ -240,6 +242,7 @@ export async function renderLog(container, params = {}) {
         type: isCravingMoment ? 'urge_moment' : 'checkpoint',
         checkpoint: isCravingMoment ? 'urge_moment' : selectedCp,
         energy,
+        pressure,
         craving,
         mood,
         sleep_hours: sleepHours,
