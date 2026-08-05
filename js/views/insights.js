@@ -263,11 +263,11 @@ export async function renderInsights(container) {
               </div>
               <div class="day-stat">
                 <div class="day-stat-val">${avgE}</div>
-                <div class="day-stat-key">Energy</div>
+                <div class="day-stat-key">ENGY</div>
               </div>
               <div class="day-stat">
                 <div class="day-stat-val">${avgP}</div>
-                <div class="day-stat-key">Pressure</div>
+                <div class="day-stat-key">PRSS</div>
               </div>
               <div class="day-stat">
                 <div class="day-stat-val">${peakC}</div>
