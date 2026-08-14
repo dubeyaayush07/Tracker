@@ -182,6 +182,18 @@ export async function renderInsights(container) {
       return { label: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dow], avg: parseFloat(avg.toFixed(1)) };
     });
 
+    // Recurring Factors (Last 30 Days)
+    const thirtyDays = new Set(getLast30Days());
+    const recentRefls = reflections.filter(r => thirtyDays.has(r.date));
+    const goodTally = {};
+    const badTally = {};
+    recentRefls.forEach(r => {
+      (r.good_factors || []).forEach(f => goodTally[f] = (goodTally[f] || 0) + 1);
+      (r.bad_factors || []).forEach(f => badTally[f] = (badTally[f] || 0) + 1);
+    });
+    const topGood = Object.entries(goodTally).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topBad = Object.entries(badTally).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
 
 
 
@@ -221,6 +233,30 @@ export async function renderInsights(container) {
             `).join('')}
           </div>
         `}
+      </div>
+
+      <div class="insight-card">
+        <div class="insight-card-title">Recurring Factors (Last 30 Days)</div>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:24px">
+          <div>
+            <div style="font-size:0.8125rem;color:var(--text-2);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">Most Frequent Wins</div>
+            ${topGood.length === 0 ? `<div style="font-size:0.875rem;color:var(--text-3)">No positive factors logged yet.</div>` : topGood.map(([f, c]) => `
+              <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:8px">
+                <span style="color:var(--text)">${f}</span>
+                <span style="color:var(--success);font-weight:600">${c} day${c > 1 ? 's' : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div>
+            <div style="font-size:0.8125rem;color:var(--text-2);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px">Most Frequent Hurdles</div>
+            ${topBad.length === 0 ? `<div style="font-size:0.875rem;color:var(--text-3)">No negative factors logged yet.</div>` : topBad.map(([f, c]) => `
+              <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:8px">
+                <span style="color:var(--text)">${f}</span>
+                <span style="color:var(--danger);font-weight:600">${c} day${c > 1 ? 's' : ''}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
       </div>
 
 
