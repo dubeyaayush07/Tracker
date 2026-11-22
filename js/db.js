@@ -180,6 +180,18 @@ export async function saveWorry(worry) {
 export async function deleteWorry(id) {
   await dbDelete('worries', id);
 }
+export async function getWorriesByDate(date) {
+  const all = await dbGetAll('worries');
+  return all.filter(w => {
+    if (w.date === date) return true;
+    if (!w.date && w.createdAt) {
+      const d = new Date(w.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return key === date;
+    }
+    return false;
+  }).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+}
 
 // Clear-day streak (no slip)
 export async function getClearDays() {

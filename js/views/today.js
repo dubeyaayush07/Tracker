@@ -1,4 +1,4 @@
-import { dbGetByIndex, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList, dbPut } from '../db.js';
+import { dbGetByIndex, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList, dbPut, getWorriesByDate } from '../db.js';
 import { getToday, formatDate, formatTime, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
@@ -9,7 +9,7 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights, lockdown24hEnd] = await Promise.all([
+  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights, lockdown24hEnd, todayWorries] = await Promise.all([
     getCheckpoints(),
     getClearDays(),
     dbGetByIndex('logs', 'date', today),
@@ -17,7 +17,8 @@ export async function renderToday(container) {
     getPlanByDate(today),
     getSetting('lockdown_active'),
     getInsightsList(),
-    getSetting('lockdown_24h_end')
+    getSetting('lockdown_24h_end'),
+    getWorriesByDate(today)
   ]);
 
   const currentLockdown = lockdownActive;
@@ -193,7 +194,27 @@ export async function renderToday(container) {
         </div>
       </div>
 
+      ${reflectPrompt}
 
+      <!-- Worry Log -->
+      <div class="section-header" style="margin-top:4px">
+        <span class="section-title">Worry Log</span>
+        ${todayWorries.length > 0 ? `<span style="font-size:0.75rem;color:var(--text-3);margin-right:16px">${todayWorries.length} parked for tonight</span>` : ''}
+      </div>
+      <div class="checkpoints-section" style="padding:14px 16px;margin-top:0">
+        <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+          <input type="text" id="worry-input" placeholder="What's really sticking? (High intensity)" style="flex:1;min-width:0;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:0.875rem">
+          <button id="worry-add-btn" class="btn" style="width:42px;height:42px;min-width:42px;padding:0;background:var(--primary);color:#fff;border-radius:var(--radius-sm);flex-shrink:0;box-shadow:0 2px 8px var(--primary-glow);display:inline-flex;align-items:center;justify-content:center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:0.75rem;color:var(--text-3);white-space:nowrap">Peak Intensity</span>
+          <input type="range" id="worry-intensity" min="0" max="10" value="0" style="flex:1">
+          <span id="worry-int-val" style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;color:var(--primary);min-width:32px;text-align:right">None</span>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-3);margin-top:8px;line-height:1.4">Park it here and let it go until tonight's reflection.</div>
+      </div>
 
       ${saturdayBanner}
       ${calmDayBanner}
@@ -205,8 +226,6 @@ export async function renderToday(container) {
         <span class="section-title">Checkpoints</span>
       </div>
       <div class="checkpoints-section">${checkpointRows}</div>
-
-      ${reflectPrompt}
 
 
     </div>
@@ -265,6 +284,38 @@ export async function renderToday(container) {
       const cpId = row.dataset.cp;
       navigate(`/log?cp=${cpId}`);
     });
+  });
+
+  // Worry log handlers
+  const worryIntSlider = container.querySelector('#worry-intensity');
+  const worryIntValEl = container.querySelector('#worry-int-val');
+  worryIntSlider?.addEventListener('input', () => {
+    if (worryIntValEl) {
+      const v = parseInt(worryIntSlider.value);
+      worryIntValEl.textContent = v === 0 ? 'None' : v;
+    }
+  });
+
+  container.querySelector('#worry-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') container.querySelector('#worry-add-btn')?.click();
+  });
+
+  container.querySelector('#worry-add-btn')?.addEventListener('click', async () => {
+    const input = container.querySelector('#worry-input');
+    const text = input?.value?.trim();
+    if (!text) return;
+    const rawInt = parseInt(container.querySelector('#worry-intensity')?.value || '0');
+    const intensity = rawInt > 0 ? rawInt : null;
+    await dbPut('worries', {
+      id: generateId(),
+      text,
+      intensity,
+      date: today,
+      createdAt: new Date().toISOString(),
+    });
+    input.value = '';
+    showToast('Parked for tonight');
+    renderToday(container);
   });
 
   async function updateLockdownNotification(level) {

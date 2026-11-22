@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tracker-v1150';
+const CACHE_NAME = 'tracker-v1166';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,6 @@ const ASSETS = [
   './js/views/insights.js',
   './js/views/settings.js',
   './js/views/menu.js',
-  './js/views/worries.js',
 ];
 
 self.addEventListener('install', event => {

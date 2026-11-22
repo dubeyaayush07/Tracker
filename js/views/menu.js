@@ -6,18 +6,6 @@ export async function renderMenu(container) {
       </div>
       
       <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 20px;">
-        <a href="#/worries" class="card" style="text-decoration: none; display: flex; align-items: center; padding: 20px; gap: 16px;">
-          <div style="background: var(--surface-2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size: 1.1rem; font-weight: 500; color: var(--text-1); margin-bottom: 4px;">Worry Tracker</div>
-            <div style="font-size: 0.85rem; color: var(--text-2);">Log and review intrusive thoughts</div>
-          </div>
-        </a>
-
         <a href="#/settings" class="card" style="text-decoration: none; display: flex; align-items: center; padding: 20px; gap: 16px;">
           <div style="background: var(--surface-2); width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

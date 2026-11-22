@@ -190,7 +190,7 @@ export async function renderSettings(container) {
 
         <!-- ABOUT -->
         <div style="padding:24px 16px;text-align:center;color:var(--text-3);font-size:0.75rem">
-          <p>Tracker v1.15.0 — All data stays on your device</p>
+          <p>Tracker v1.16.6 — All data stays on your device</p>
           <p style="margin-top:4px">Built as a PWA. Add to home screen from your browser menu.</p>
         </div>
       </div>
@@ -349,7 +349,7 @@ export async function renderSettings(container) {
     container.querySelector('#clear-btn')?.addEventListener('click', async () => {
       if (!confirm('Delete ALL data permanently? This cannot be undone.')) return;
       if (!confirm('Are you absolutely sure? Export a backup first.')) return;
-      await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans')]);
+      await Promise.all([dbClear('logs'), dbClear('reflections'), dbClear('plans'), dbClear('worries')]);
       showToast('All data cleared');
     });
   }

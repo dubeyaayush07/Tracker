@@ -6,7 +6,6 @@ import { renderPlan } from './views/plan.js';
 import { renderInsights } from './views/insights.js';
 import { renderSettings } from './views/settings.js';
 import { renderMenu } from './views/menu.js';
-import { renderWorries } from './views/worries.js';
 const main = document.getElementById('main-content');
 const navItems = document.querySelectorAll('.nav-item');
 
@@ -43,7 +42,6 @@ const ROUTES = {
   '/insights': { render: renderInsights, navId: 'nav-insights' },
   '/menu': { render: renderMenu, navId: 'nav-menu' },
   '/settings': { render: renderSettings, navId: 'nav-menu' },
-  '/worries': { render: (c, p) => renderWorries(c, p), navId: 'nav-menu' },
 };
 
 async function route() {
