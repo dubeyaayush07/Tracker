@@ -12,6 +12,7 @@ function destroyCharts() {
 const CHART_DEFAULTS = {
   responsive: true,
   maintainAspectRatio: false,
+  layout: { padding: { top: 8, right: 6 } },
   plugins: {
     legend: { display: false },
     tooltip: {
@@ -25,7 +26,7 @@ const CHART_DEFAULTS = {
     },
   },
   scales: {
-    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6c6c84', font: { size: 11 } } },
+    x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6c6c84', font: { size: 11 }, autoSkip: true, maxTicksLimit: 8 } },
     y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6c6c84', font: { size: 11 } } },
   },
 };
@@ -65,7 +66,6 @@ export async function renderInsights(container) {
 
   const days30 = getLast30Days();
   const days30Set = new Set(days30);
-  const last14 = days30.slice(-14);
   const last7Set = new Set(days30.slice(-7));
 
   const reflMap = Object.fromEntries(reflections.map(r => [r.date, r]));
@@ -85,7 +85,38 @@ export async function renderInsights(container) {
   ).sort((a, b) => b.localeCompare(a));
 
   let activeTab = 'trends';
+  let chartRange = '14';
   let daysLimit = 30;
+  const MENTAL_SERIES = [
+    { key: 'peak_urge', label: 'Peak urge', color: '#ff6b7a', bg: 'rgba(255, 107, 122, 0.14)' },
+    { key: 'pressure', label: 'Pressure', color: '#ffa94d', bg: 'rgba(255, 169, 77, 0.14)' },
+    { key: 'guilt', label: 'Guilt', color: '#8b7cf6', bg: 'rgba(139, 124, 246, 0.14)' },
+  ];
+  const visibleSeries = new Set(['peak_urge', 'pressure', 'guilt']);
+
+  function getChartDays(range) {
+    const todayStr = dateKey(new Date());
+    if (range === 'all') {
+      const earliest = allActiveDays[allActiveDays.length - 1];
+      if (!earliest) return days30.slice(-14);
+      const start = parseDateKey(earliest);
+      const end = parseDateKey(todayStr);
+      const out = [];
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        out.push(dateKey(d));
+      }
+      return out.length >= 14 ? out : days30.slice(-14);
+    }
+    const count = parseInt(range, 10);
+    const out = [];
+    const today = new Date();
+    for (let i = count - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      out.push(dateKey(d));
+    }
+    return out;
+  }
 
   function buildPage() {
     return `
@@ -123,8 +154,10 @@ export async function renderInsights(container) {
     const avgGuilt7 = avgStr(refs7.map(r => r.guilt).filter(v => v != null));
     const worries7Count = worries.filter(w => last7Set.has(getWorryDate(w))).length;
 
-    const refs14Count = last14.filter(d => reflMap[d]).length;
-    const worries14Total = last14.reduce((s, d) => s + (worriesByDate[d]?.length || 0), 0);
+    const chartDays = getChartDays(chartRange);
+    const rangeLabel = chartRange === 'all' ? 'all time' : `last ${chartRange} days`;
+    const refsInRangeCount = chartDays.filter(d => reflMap[d]).length;
+    const worriesInRangeTotal = chartDays.reduce((s, d) => s + (worriesByDate[d]?.length || 0), 0);
 
     return `
       <div class="stat-grid">
@@ -138,7 +171,7 @@ export async function renderInsights(container) {
         </div>
         <div class="stat-card">
           <div class="stat-value">${worries7Count}</div>
-          <div class="stat-label">Worries parked (7d)</div>
+          <div class="stat-label">Worries noted (7d)</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" style="font-size:1.375rem;line-height:1.55">${avgPress7} <span style="color:var(--text-3)">/</span> ${avgGuilt7}</div>
@@ -146,27 +179,41 @@ export async function renderInsights(container) {
         </div>
       </div>
 
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 16px 2px">
+        <span style="font-size:0.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-3)">Chart Range</span>
+        <div style="display:flex;gap:6px">
+          ${[
+            ['14', '14D'],
+            ['30', '30D'],
+            ['90', '90D'],
+            ['all', 'All'],
+          ].map(([val, lbl]) => `
+            <button class="cp-chip chart-range-btn ${chartRange === val ? 'active' : ''}" data-range="${val}" style="padding:4px 10px;font-size:0.75rem">${lbl}</button>
+          `).join('')}
+        </div>
+      </div>
+
       <div class="insight-card">
-        <div class="insight-card-title">Mental load — last 14 days</div>
-        ${refs14Count < 2 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">Save at least 2 reflections to see trends</div>` : `
-          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-2)">
-              <span style="width:10px;height:10px;border-radius:50%;background:#ff6b7a;display:inline-block"></span> Peak urge
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-2)">
-              <span style="width:10px;height:10px;border-radius:50%;background:#ffa94d;display:inline-block"></span> Pressure
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--text-2)">
-              <span style="width:10px;height:10px;border-radius:50%;background:#8b7cf6;display:inline-block"></span> Guilt
-            </div>
+        <div class="insight-card-title">Mental load — ${rangeLabel}</div>
+        ${refsInRangeCount < 2 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">Save at least 2 reflections to see trends</div>` : `
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            ${MENTAL_SERIES.map(s => {
+              const on = visibleSeries.has(s.key);
+              return `
+                <button class="mental-toggle-btn" data-series="${s.key}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:var(--radius-full);border:1px solid ${on ? s.color : 'var(--border)'};background:${on ? s.bg : 'transparent'};color:${on ? 'var(--text)' : 'var(--text-3)'};font-family:inherit;font-size:0.75rem;font-weight:500;cursor:pointer;opacity:${on ? '1' : '0.6'};transition:all var(--transition);-webkit-tap-highlight-color:transparent">
+                  <span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block"></span>
+                  ${s.label}
+                </button>
+              `;
+            }).join('')}
           </div>
           <div class="chart-wrap"><canvas id="chart-mental-load"></canvas></div>
         `}
       </div>
 
       <div class="insight-card">
-        <div class="insight-card-title">Daily worries — last 14 days</div>
-        ${worries14Total === 0 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">No worries logged in the last 14 days</div>` : `
+        <div class="insight-card-title">Daily worries — ${rangeLabel}</div>
+        ${worriesInRangeTotal === 0 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">No worries logged in ${rangeLabel}</div>` : `
           <div class="chart-wrap"><canvas id="chart-worries-14d"></canvas></div>
         `}
       </div>
@@ -252,7 +299,7 @@ export async function renderInsights(container) {
       </div>
 
       <div class="insight-card">
-        <div class="insight-card-title">By day of week (last 30 days)</div>
+        <div class="insight-card-title">Avg peak urge & worries by day (30d)</div>
         ${refs30.length < 3 && worries30.length === 0 ? `<div style="text-align:center;padding:24px 0;color:var(--text-3);font-size:0.875rem">Log more reflections to spot weekly patterns</div>` : `
           <div style="display:flex;flex-direction:column;gap:10px">
             ${dowStats.map(d => `
@@ -261,7 +308,7 @@ export async function renderInsights(container) {
                 <div style="flex:1;height:6px;background:var(--surface-3);border-radius:3px;overflow:hidden">
                   <div style="height:100%;width:${d.avg !== null ? (d.avg / 10 * 100) : 0}%;background:${d.avg >= 7 ? 'var(--danger)' : d.avg >= 4 ? 'var(--warning)' : 'var(--primary)'};border-radius:3px;transition:width 0.4s ease"></div>
                 </div>
-                <div style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;color:${d.avg !== null ? 'var(--text)' : 'var(--text-3)'};width:28px;text-align:right">${d.avg !== null ? d.avg : '—'}</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;color:${d.avg !== null ? 'var(--text)' : 'var(--text-3)'};width:30px;text-align:right">${d.avg !== null ? d.avg.toFixed(1) : '—'}</div>
                 <div style="font-size:0.75rem;color:var(--text-3);width:54px;text-align:right">${d.worries} ${d.worries === 1 ? 'worry' : 'worries'}</div>
               </div>
             `).join('')}
@@ -270,7 +317,7 @@ export async function renderInsights(container) {
       </div>
 
       <div class="insight-card">
-        <div class="insight-card-title">High-intensity worries (7+ · last 30 days)</div>
+        <div class="insight-card-title">High-intensity worries (7+ · 30d)</div>
         ${highWorries.length === 0 ? `<div style="font-size:0.875rem;color:var(--text-3);padding:8px 0">No worries rated 7 or higher in the last 30 days.</div>` : `
           <div style="display:flex;flex-direction:column;gap:8px">
             ${highWorries.map(w => {
@@ -374,7 +421,7 @@ export async function renderInsights(container) {
       }).join('') || `<div class="empty-state">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         <p style="font-weight:500;margin-bottom:6px">No reflections yet</p>
-        <p style="font-size:0.8125rem">Save a reflection or park a worry to see your daily history</p>
+        <p style="font-size:0.8125rem">Save a reflection or note a worry to see your daily history</p>
       </div>`;
 
     return `
@@ -402,6 +449,29 @@ export async function renderInsights(container) {
       btn.addEventListener('click', () => {
         destroyCharts();
         activeTab = btn.dataset.tab;
+        mount();
+      });
+    });
+
+    container.querySelectorAll('.chart-range-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (chartRange === btn.dataset.range) return;
+        destroyCharts();
+        chartRange = btn.dataset.range;
+        mount();
+      });
+    });
+
+    container.querySelectorAll('.mental-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.series;
+        if (visibleSeries.has(key)) {
+          if (visibleSeries.size === 1) return;
+          visibleSeries.delete(key);
+        } else {
+          visibleSeries.add(key);
+        }
+        destroyCharts();
         mount();
       });
     });
@@ -434,7 +504,10 @@ export async function renderInsights(container) {
   function drawCharts() {
     if (typeof Chart === 'undefined') return;
 
-    const labels = last14.map(d => formatShortDate(parseDateKey(d)));
+    const chartDays = getChartDays(chartRange);
+    const labels = chartDays.map(d => formatShortDate(parseDateKey(d)));
+    const ptRadius = chartDays.length > 45 ? 0 : chartDays.length > 20 ? 2.5 : 3.5;
+    const xTicks = { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: chartDays.length > 20 ? 6 : 8 };
 
     if (activeTab === 'trends') {
       const mentalCanvas = container.querySelector('#chart-mental-load');
@@ -446,7 +519,8 @@ export async function renderInsights(container) {
           backgroundColor: 'transparent',
           tension: 0.35,
           pointBackgroundColor: color,
-          pointRadius: 3.5,
+          pointRadius: ptRadius,
+          pointHitRadius: 10,
           pointHoverRadius: 5.5,
           borderWidth: 2,
           spanGaps: true,
@@ -456,22 +530,23 @@ export async function renderInsights(container) {
           type: 'line',
           data: {
             labels,
-            datasets: [
-              makeLine('Peak urge', last14.map(d => reflMap[d]?.peak_urge ?? null), '#ff6b7a'),
-              makeLine('Pressure', last14.map(d => reflMap[d]?.pressure ?? null), '#ffa94d'),
-              makeLine('Guilt', last14.map(d => reflMap[d]?.guilt ?? null), '#8b7cf6'),
-            ],
+            datasets: MENTAL_SERIES
+              .filter(s => visibleSeries.has(s.key))
+              .map(s => makeLine(s.label, chartDays.map(d => reflMap[d]?.[s.key] ?? null), s.color)),
           },
           options: {
             ...CHART_DEFAULTS,
-            scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, min: 0, max: 10 } },
+            scales: {
+              x: { ...CHART_DEFAULTS.scales.x, ticks: xTicks },
+              y: { ...CHART_DEFAULTS.scales.y, min: 0, max: 10 },
+            },
           },
         });
       }
 
       const worriesCanvas = container.querySelector('#chart-worries-14d');
       if (worriesCanvas) {
-        const counts = last14.map(d => worriesByDate[d]?.length || 0);
+        const counts = chartDays.map(d => worriesByDate[d]?.length || 0);
         chartInstances['worries14'] = new Chart(worriesCanvas, {
           type: 'bar',
           data: {
@@ -480,13 +555,13 @@ export async function renderInsights(container) {
               label: 'Worries',
               data: counts,
               backgroundColor: 'rgba(255, 169, 77, 0.7)',
-              borderRadius: 5,
+              borderRadius: chartDays.length > 45 ? 2 : 5,
             }],
           },
           options: {
             ...CHART_DEFAULTS,
             scales: {
-              ...CHART_DEFAULTS.scales,
+              x: { ...CHART_DEFAULTS.scales.x, ticks: xTicks },
               y: { ...CHART_DEFAULTS.scales.y, beginAtZero: true, ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 1 } },
             },
           },

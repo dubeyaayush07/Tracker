@@ -74,7 +74,7 @@ export async function renderToday(container) {
       <!-- Worry Log -->
       <div class="section-header" style="margin-top:4px">
         <span class="section-title">Worry Log</span>
-        ${todayWorries.length > 0 ? `<span style="font-size:0.75rem;color:var(--text-3);margin-right:16px">${todayWorries.length} parked for tonight</span>` : ''}
+        ${todayWorries.length > 0 ? `<span style="font-size:0.75rem;color:var(--text-3);margin-right:16px">${todayWorries.length} noted today</span>` : ''}
       </div>
       <div class="checkpoints-section" style="padding:14px 16px;margin-top:0">
         <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
@@ -88,7 +88,7 @@ export async function renderToday(container) {
           <input type="range" id="worry-intensity" min="0" max="10" value="0" style="flex:1">
           <span id="worry-int-val" style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;color:var(--primary);min-width:32px;text-align:right">None</span>
         </div>
-        <div style="font-size:0.75rem;color:var(--text-3);margin-top:8px;line-height:1.4">Park it here and let it go until tonight's reflection.</div>
+        <div style="font-size:0.75rem;color:var(--text-3);margin-top:8px;line-height:1.4">Note it down and let it pass.</div>
       </div>
 
       ${showBackupNudge ? `
@@ -130,7 +130,7 @@ export async function renderToday(container) {
       createdAt: new Date().toISOString(),
     });
     input.value = '';
-    showToast('Parked for tonight');
+    showToast('Worry noted');
     renderToday(container);
   });
 }

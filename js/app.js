@@ -62,6 +62,7 @@ async function route() {
   }
 
   main.scrollTo({ top: 0, behavior: 'instant' });
+  window.scrollTo(0, 0);
 }
 
 // ===== SERVICE WORKER =====
