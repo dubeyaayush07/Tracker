@@ -12,7 +12,7 @@ function destroyCharts() {
 const CHART_DEFAULTS = {
   responsive: true,
   maintainAspectRatio: false,
-  layout: { padding: { top: 8, right: 6 } },
+  layout: { padding: { top: 10, right: 8 } },
   plugins: {
     legend: { display: false },
     tooltip: {
@@ -118,6 +118,74 @@ export async function renderInsights(container) {
     return out;
   }
 
+  function groupByWeek(chartDays) {
+    const weekBuckets = new Map();
+    chartDays.forEach(d => {
+      const dt = parseDateKey(d);
+      const day = dt.getDay();
+      dt.setDate(dt.getDate() + (day === 0 ? -6 : 1 - day));
+      const wk = dateKey(dt);
+      if (!weekBuckets.has(wk)) weekBuckets.set(wk, []);
+      weekBuckets.get(wk).push(d);
+    });
+    return Array.from(weekBuckets.entries());
+  }
+
+  function buildMentalSeries(chartDays, range) {
+    const avgVals = (arr) => arr.length ? parseFloat((arr.reduce((s, n) => s + n, 0) / arr.length).toFixed(1)) : null;
+
+    if (range === '14') {
+      return {
+        labels: chartDays.map(d => formatShortDate(parseDateKey(d))),
+        ptRadius: 3.5,
+        getSeries: (key) => chartDays.map(d => reflMap[d]?.[key] ?? null),
+      };
+    }
+
+    if (range === '30') {
+      return {
+        labels: chartDays.map(d => formatShortDate(parseDateKey(d))),
+        ptRadius: 0,
+        getSeries: (key) => chartDays.map(d => {
+          const end = parseDateKey(d);
+          const vals = [];
+          for (let i = 0; i < 7; i++) {
+            const wd = new Date(end);
+            wd.setDate(end.getDate() - i);
+            const v = reflMap[dateKey(wd)]?.[key];
+            if (v != null) vals.push(v);
+          }
+          return avgVals(vals);
+        }),
+      };
+    }
+
+    const weeks = groupByWeek(chartDays);
+    return {
+      labels: weeks.map(([wk]) => formatShortDate(parseDateKey(wk))),
+      ptRadius: weeks.length > 35 ? 2 : 3,
+      getSeries: (key) => weeks.map(([, days]) =>
+        avgVals(days.map(d => reflMap[d]?.[key]).filter(v => v != null))
+      ),
+    };
+  }
+
+  function buildWorrySeries(chartDays, range) {
+    if (range === '14' || range === '30') {
+      return {
+        labels: chartDays.map(d => formatShortDate(parseDateKey(d))),
+        counts: chartDays.map(d => worriesByDate[d]?.length || 0),
+        borderRadius: range === '30' ? 3 : 5,
+      };
+    }
+    const weeks = groupByWeek(chartDays);
+    return {
+      labels: weeks.map(([wk]) => formatShortDate(parseDateKey(wk))),
+      counts: weeks.map(([, days]) => days.reduce((s, d) => s + (worriesByDate[d]?.length || 0), 0)),
+      borderRadius: 4,
+    };
+  }
+
   function buildPage() {
     return `
       <div class="insights-view view-enter">
@@ -156,6 +224,20 @@ export async function renderInsights(container) {
 
     const chartDays = getChartDays(chartRange);
     const rangeLabel = chartRange === 'all' ? 'all time' : `last ${chartRange} days`;
+    const mentalTitle = chartRange === '14'
+      ? 'Mental load — last 14 days'
+      : chartRange === '30'
+        ? 'Mental load — 7d rolling avg (30d)'
+        : chartRange === '90'
+          ? 'Mental load — weekly avg (90d)'
+          : 'Mental load — weekly avg (all time)';
+    const worriesTitle = chartRange === '14'
+      ? 'Daily worries — last 14 days'
+      : chartRange === '30'
+        ? 'Daily worries — last 30 days'
+        : chartRange === '90'
+          ? 'Weekly worries — last 90 days'
+          : 'Weekly worries — all time';
     const refsInRangeCount = chartDays.filter(d => reflMap[d]).length;
     const worriesInRangeTotal = chartDays.reduce((s, d) => s + (worriesByDate[d]?.length || 0), 0);
 
@@ -194,7 +276,7 @@ export async function renderInsights(container) {
       </div>
 
       <div class="insight-card">
-        <div class="insight-card-title">Mental load — ${rangeLabel}</div>
+        <div class="insight-card-title">${mentalTitle}</div>
         ${refsInRangeCount < 2 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">Save at least 2 reflections to see trends</div>` : `
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
             ${MENTAL_SERIES.map(s => {
@@ -212,7 +294,7 @@ export async function renderInsights(container) {
       </div>
 
       <div class="insight-card">
-        <div class="insight-card-title">Daily worries — ${rangeLabel}</div>
+        <div class="insight-card-title">${worriesTitle}</div>
         ${worriesInRangeTotal === 0 ? `<div style="text-align:center;padding:32px 0;color:var(--text-3);font-size:0.875rem">No worries logged in ${rangeLabel}</div>` : `
           <div class="chart-wrap"><canvas id="chart-worries-14d"></canvas></div>
         `}
@@ -505,34 +587,34 @@ export async function renderInsights(container) {
     if (typeof Chart === 'undefined') return;
 
     const chartDays = getChartDays(chartRange);
-    const labels = chartDays.map(d => formatShortDate(parseDateKey(d)));
-    const ptRadius = chartDays.length > 45 ? 0 : chartDays.length > 20 ? 2.5 : 3.5;
-    const xTicks = { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: chartDays.length > 20 ? 6 : 8 };
 
     if (activeTab === 'trends') {
       const mentalCanvas = container.querySelector('#chart-mental-load');
       if (mentalCanvas) {
+        const mental = buildMentalSeries(chartDays, chartRange);
+        const xTicks = { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: mental.labels.length > 20 ? 6 : 8 };
         const makeLine = (label, data, color) => ({
           label,
           data,
           borderColor: color,
           backgroundColor: 'transparent',
-          tension: 0.35,
+          tension: chartRange === '30' ? 0.4 : 0.35,
           pointBackgroundColor: color,
-          pointRadius: ptRadius,
+          pointRadius: mental.ptRadius,
           pointHitRadius: 10,
           pointHoverRadius: 5.5,
           borderWidth: 2,
           spanGaps: true,
+          clip: false,
         });
 
         chartInstances['mental'] = new Chart(mentalCanvas, {
           type: 'line',
           data: {
-            labels,
+            labels: mental.labels,
             datasets: MENTAL_SERIES
               .filter(s => visibleSeries.has(s.key))
-              .map(s => makeLine(s.label, chartDays.map(d => reflMap[d]?.[s.key] ?? null), s.color)),
+              .map(s => makeLine(s.label, mental.getSeries(s.key), s.color)),
           },
           options: {
             ...CHART_DEFAULTS,
@@ -546,23 +628,24 @@ export async function renderInsights(container) {
 
       const worriesCanvas = container.querySelector('#chart-worries-14d');
       if (worriesCanvas) {
-        const counts = chartDays.map(d => worriesByDate[d]?.length || 0);
+        const worry = buildWorrySeries(chartDays, chartRange);
+        const xTicks = { ...CHART_DEFAULTS.scales.x.ticks, maxTicksLimit: worry.labels.length > 20 ? 6 : 8 };
         chartInstances['worries14'] = new Chart(worriesCanvas, {
           type: 'bar',
           data: {
-            labels,
+            labels: worry.labels,
             datasets: [{
               label: 'Worries',
-              data: counts,
+              data: worry.counts,
               backgroundColor: 'rgba(255, 169, 77, 0.7)',
-              borderRadius: chartDays.length > 45 ? 2 : 5,
+              borderRadius: worry.borderRadius,
             }],
           },
           options: {
             ...CHART_DEFAULTS,
             scales: {
               x: { ...CHART_DEFAULTS.scales.x, ticks: xTicks },
-              y: { ...CHART_DEFAULTS.scales.y, beginAtZero: true, ticks: { ...CHART_DEFAULTS.scales.y.ticks, stepSize: 1 } },
+              y: { ...CHART_DEFAULTS.scales.y, beginAtZero: true, ticks: { ...CHART_DEFAULTS.scales.y.ticks, precision: 0 } },
             },
           },
         });
