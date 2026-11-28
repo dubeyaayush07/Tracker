@@ -1,5 +1,5 @@
-import { dbGetByIndex, getCheckpoints, getClearDays, getReflectionByDate, getPlanByDate, generateId, getSetting, setSetting, getInsightsList, dbPut, getWorriesByDate } from '../db.js';
-import { getToday, formatDate, formatTime, getSuggestedCheckpoint, formatBlockTime, parseTime, isSaturday, getNextSunday, daysAgo } from '../utils/time.js';
+import { dbGetAll, generateId, getInsightsList, dbPut, getWorriesByDate, getSetting } from '../db.js';
+import { getToday, formatDate } from '../utils/time.js';
 import { navigate, showToast } from '../app.js';
 
 export async function renderToday(container) {
@@ -9,81 +9,23 @@ export async function renderToday(container) {
   const dayPart = dateStr.split(',')[0];
   const restDate = dateStr.split(',').slice(1).join(',').trim();
 
-  const [checkpoints, clearDays, todayLogs, reflection, todayPlan, lockdownActive, insights, lockdown24hEnd, todayWorries] = await Promise.all([
-    getCheckpoints(),
-    getClearDays(),
-    dbGetByIndex('logs', 'date', today),
-    getReflectionByDate(today),
-    getPlanByDate(today),
-    getSetting('lockdown_active'),
+  const [allReflections, insights, todayWorries, lastBackup] = await Promise.all([
+    dbGetAll('reflections'),
     getInsightsList(),
-    getSetting('lockdown_24h_end'),
-    getWorriesByDate(today)
+    getWorriesByDate(today),
+    getSetting('last_backup'),
   ]);
 
-  const currentLockdown = lockdownActive;
+  const reflection = allReflections.find(r => r.date === today) || null;
   const dailyInsight = insights.length > 0 ? insights[Math.floor(Math.random() * insights.length)] : null;
 
-  if (lockdown24hEnd && lockdown24hEnd <= Date.now()) {
-    setSetting('lockdown_24h_end', null);
-  }
-
-  const suggestedCp = getSuggestedCheckpoint(checkpoints);
-
-  // Build checkpoint completion map
-  const cpStatus = {};
-  for (const cp of checkpoints) {
-    const logsForCp = todayLogs.filter(l => l.checkpoint === cp.id);
-    cpStatus[cp.id] = logsForCp.length > 0 ? 'done' : 
-      (cp.id === suggestedCp.id ? 'active' : 'pending');
-  }
-
-  const saturdayBanner = isSaturday() ? `
-    <div class="banner banner-primary" style="cursor:pointer" id="plan-banner">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary);flex-shrink:0;margin-top:1px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <div>
-        <div style="font-weight:600;font-size:0.9375rem;color:var(--primary)">Plan your Sunday</div>
-        <div style="font-size:0.8125rem;color:var(--text-2);margin-top:2px">Tap to plan tomorrow and reduce decision fatigue</div>
-      </div>
-    </div>
-  ` : '';
-
-  let lockdownBtn = '';
-  if (currentLockdown) {
-    lockdownBtn = `
-      <div class="banner banner-danger" style="background:var(--danger);color:#fff;display:flex;flex-direction:column;gap:12px;padding:12px">
-        <div id="lockdown-btn" style="display:flex;align-items:center;gap:12px;cursor:pointer">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <div>
-            <div style="font-weight:700;font-size:0.9375rem">LOCKDOWN ACTIVE</div>
-            <div style="font-size:0.8125rem;opacity:0.9;margin-top:2px">Tap to disable</div>
-          </div>
-        </div>
-      </div>
-    `;
-  } else {
-    lockdownBtn = `
-      <div class="banner banner-secondary" id="lockdown-btn" style="cursor:pointer;border:1px solid var(--danger-dim);">
-        <div style="display:flex;align-items:center;gap:12px;color:var(--danger)">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <div style="font-weight:600;font-size:0.875rem">Activate Lockdown</div>
-        </div>
-      </div>
-    `;
-  }
-
-  let calmDayBanner = '';
-  if (lockdown24hEnd && lockdown24hEnd > Date.now()) {
-    calmDayBanner = `
-      <div class="banner" style="background:var(--primary);color:#fff;border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:0 4px 12px rgba(0,0,0,0.2)">
-        <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px">
-          <div style="font-weight:700;font-size:1.125rem;letter-spacing:0.5px">CALM-DAY 24H WAIT</div>
-          <div style="font-size:0.9375rem;opacity:0.95;line-height:1.4">You committed to waiting before acting on a calm-day desire.</div>
-          <div id="calm-day-timer" style="font-family:'JetBrains Mono',monospace;font-size:2.5rem;font-weight:700;letter-spacing:-1px;margin:8px 0;text-shadow:0 2px 4px rgba(0,0,0,0.2)">--:--:--</div>
-        </div>
-      </div>
-    `;
-  }
+  const daysSinceBackup = lastBackup
+    ? Math.floor((Date.now() - new Date(lastBackup).getTime()) / 86400000)
+    : null;
+  const showBackupNudge = allReflections.length >= 3 && (daysSinceBackup === null || daysSinceBackup >= 14);
+  const backupNudgeText = daysSinceBackup === null
+    ? 'No backup yet — tap to export your data'
+    : `Last backup ${daysSinceBackup}d ago — tap to export`;
 
   const reflectPrompt = !reflection ? `
     <div class="reflect-prompt" id="reflect-prompt-btn">
@@ -97,88 +39,20 @@ export async function renderToday(container) {
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3)"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
   ` : `
-    <div class="reflect-prompt" style="cursor:default;opacity:0.6">
+    <div class="reflect-prompt" id="reflect-prompt-btn" style="opacity:0.75">
       <div style="width:36px;height:36px;border-radius:50%;background:var(--success-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
-      <div>
+      <div style="flex:1">
         <div style="font-weight:500;font-size:0.9375rem">Daily Reflection complete</div>
-        <div style="font-size:0.8125rem;color:var(--text-2);margin-top:1px">See you tomorrow</div>
+        <div style="font-size:0.8125rem;color:var(--text-2);margin-top:1px">Tap to view or update</div>
       </div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3)"><polyline points="9 18 15 12 9 6"/></svg>
     </div>
   `;
 
-  const cpIcon = (status) => {
-    if (status === 'done') return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-    if (status === 'active') return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/></svg>`;
-    return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>`;
-  };
-
-  const checkpointRows = checkpoints.map(cp => {
-    const s = cpStatus[cp.id];
-    const logForCp = todayLogs.find(l => l.checkpoint === cp.id);
-    const statsStr = logForCp 
-      ? `Craving ${logForCp.craving} · Energy ${logForCp.energy} · Mood ${logForCp.mood}`
-      : s === 'active' ? 'Now — tap to log' : '';
-    return `
-      <div class="checkpoint-row" data-cp="${cp.id}">
-        <div class="checkpoint-icon ${s}">${cpIcon(s)}</div>
-        <div class="checkpoint-info">
-          <div class="checkpoint-name">${cp.label}</div>
-          ${statsStr ? `<div class="checkpoint-stats">${statsStr}</div>` : ''}
-        </div>
-        <svg class="checkpoint-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </div>
-    `;
-  }).join('');
-
-
-
-  let planSection = '';
-  const dayNote = todayPlan?.dayNote || '';
-  const dayNoteSection = dayNote ? `
-    <div style="margin:0 16px 12px;padding:12px 14px;background:var(--surface-2);border-left:3px solid var(--primary);border-radius:var(--radius);font-size:0.875rem;color:var(--text);font-weight:500;white-space:pre-wrap">${dayNote}</div>
-  ` : '';
-
-  if (todayPlan && todayPlan.activities.length > 0) {
-    const doneCount = todayPlan.activities.filter(a => a.status === 'done').length;
-    const totalCount = todayPlan.activities.length;
-    planSection = `
-      <div class="section-header" style="display:flex;justify-content:space-between;align-items:flex-end">
-        <span class="section-title">Today's Plan</span>
-        <span style="font-size:0.75rem;color:var(--text-2);margin-right:16px">${doneCount}/${totalCount} done</span>
-      </div>
-      ${dayNoteSection}
-      <div class="checkpoints-section" style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
-        ${todayPlan.activities.slice(0, 10).map(act => `
-          <div class="today-plan-item" data-id="${act.id}" style="display:flex;align-items:flex-start;gap:10px;opacity:${act.status !== 'pending' ? '0.5' : '1'};margin-bottom:4px;cursor:pointer">
-            <div style="width:16px;height:16px;border-radius:4px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;background:${act.status === 'done' ? 'var(--text)' : 'transparent'};border-color:${act.status === 'done' ? 'var(--text)' : 'var(--border)'};margin-top:2px">
-              ${act.status === 'done' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : ''}
-            </div>
-            <div style="flex:1">
-              ${act.timeBlock ? `<div style="font-size:0.75rem;color:var(--primary);font-weight:600;margin-bottom:2px">${act.timeBlock}</div>` : ''}
-              <div style="font-size:0.875rem;${act.status === 'done' ? 'text-decoration:line-through' : ''}">${act.label}</div>
-            </div>
-          </div>
-        `).join('')}
-        ${todayPlan.activities.length > 10 ? `<div style="font-size:0.75rem;color:var(--text-3);margin-left:26px;margin-top:2px">+ ${todayPlan.activities.length - 10} more</div>` : ''}
-      </div>
-    `;
-  } else {
-    planSection = `
-      <div class="section-header">
-        <span class="section-title">Today's Plan</span>
-      </div>
-      ${dayNoteSection}
-      <div class="checkpoints-section" style="padding:16px;text-align:center">
-        <div style="font-size:0.875rem;color:var(--text-2);margin-bottom:4px">No activities planned</div>
-        <div style="font-size:0.8125rem;color:var(--primary);font-weight:500">Go to Plan to add some</div>
-      </div>
-    `;
-  }
-
   container.innerHTML = `
-    <div class="view-enter" style="padding-bottom:100px;">
+    <div class="view-enter" style="padding-bottom:32px;">
       ${dailyInsight ? `
         <div style="padding:16px 16px 0;text-align:center">
           <div style="font-style:italic;color:var(--text-2);font-size:0.875rem;background:var(--bg-2);padding:12px;border-radius:12px;border:1px solid var(--border)">
@@ -186,6 +60,7 @@ export async function renderToday(container) {
           </div>
         </div>
       ` : ''}
+
       <!-- Header -->
       <div class="today-hero" style="padding-top:16px;">
         <div>
@@ -216,82 +91,23 @@ export async function renderToday(container) {
         <div style="font-size:0.75rem;color:var(--text-3);margin-top:8px;line-height:1.4">Park it here and let it go until tonight's reflection.</div>
       </div>
 
-      ${saturdayBanner}
-      ${calmDayBanner}
-      ${lockdownBtn}
-
-      ${planSection}
-
-      <div class="section-header" style="margin-top:8px">
-        <span class="section-title">Checkpoints</span>
-      </div>
-      <div class="checkpoints-section">${checkpointRows}</div>
-
-
+      ${showBackupNudge ? `
+        <div id="backup-nudge-btn" style="margin:16px 16px 0;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer">
+          <span style="font-size:0.8125rem;color:var(--text-2)">${backupNudgeText}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3);flex-shrink:0"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      ` : ''}
     </div>
-
-    <button class="fab" id="fab-log" aria-label="Log now">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
   `;
 
-
-
-  // Setup 24h wait timer
-  if (window.calmDayTimer) clearInterval(window.calmDayTimer);
-  if (lockdown24hEnd && lockdown24hEnd > Date.now()) {
-    const updateCalmTimer = () => {
-      const el = container.querySelector('#calm-day-timer');
-      if (!el) {
-        clearInterval(window.calmDayTimer);
-        return;
-      }
-      const remaining = lockdown24hEnd - Date.now();
-      if (remaining <= 0) {
-        el.textContent = '00:00:00';
-        clearInterval(window.calmDayTimer);
-        setSetting('lockdown_24h_end', null);
-      } else {
-        const h = Math.floor(remaining / 3600000);
-        const m = Math.floor((remaining % 3600000) / 60000);
-        const s = Math.floor((remaining % 60000) / 1000);
-        el.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-      }
-    };
-    updateCalmTimer();
-    window.calmDayTimer = setInterval(updateCalmTimer, 1000);
-  }
-
-  // Events
-  container.querySelector('#fab-log')?.addEventListener('click', () => navigate('/log'));
   container.querySelector('#reflect-prompt-btn')?.addEventListener('click', () => navigate('/reflect'));
-  container.querySelector('#plan-banner')?.addEventListener('click', () => navigate('/plan'));
-  
-  container.querySelectorAll('.today-plan-item').forEach(el => {
-    el.addEventListener('click', async () => {
-      const id = el.dataset.id;
-      const act = todayPlan.activities.find(a => a.id === id);
-      if (act) {
-        act.status = act.status === 'done' ? 'pending' : 'done';
-        await dbPut('plans', todayPlan);
-        renderToday(container);
-      }
-    });
-  });
+  container.querySelector('#backup-nudge-btn')?.addEventListener('click', () => navigate('/settings'));
 
-  container.querySelectorAll('.checkpoint-row').forEach(row => {
-    row.addEventListener('click', () => {
-      const cpId = row.dataset.cp;
-      navigate(`/log?cp=${cpId}`);
-    });
-  });
-
-  // Worry log handlers
   const worryIntSlider = container.querySelector('#worry-intensity');
   const worryIntValEl = container.querySelector('#worry-int-val');
   worryIntSlider?.addEventListener('input', () => {
     if (worryIntValEl) {
-      const v = parseInt(worryIntSlider.value);
+      const v = parseInt(worryIntSlider.value, 10);
       worryIntValEl.textContent = v === 0 ? 'None' : v;
     }
   });
@@ -304,7 +120,7 @@ export async function renderToday(container) {
     const input = container.querySelector('#worry-input');
     const text = input?.value?.trim();
     if (!text) return;
-    const rawInt = parseInt(container.querySelector('#worry-intensity')?.value || '0');
+    const rawInt = parseInt(container.querySelector('#worry-intensity')?.value || '0', 10);
     const intensity = rawInt > 0 ? rawInt : null;
     await dbPut('worries', {
       id: generateId(),
@@ -315,36 +131,6 @@ export async function renderToday(container) {
     });
     input.value = '';
     showToast('Parked for tonight');
-    renderToday(container);
-  });
-
-  async function updateLockdownNotification(level) {
-    if (!('Notification' in window)) return;
-    let perm = Notification.permission;
-    if (perm !== 'granted' && perm !== 'denied') perm = await Notification.requestPermission();
-    if (perm !== 'granted') return;
-    
-    const reg = await navigator.serviceWorker.ready;
-    if (level === false) {
-      const notifications = await reg.getNotifications({ tag: 'lockdown-notification' });
-      notifications.forEach(n => n.close());
-    } else if (level === true) {
-      reg.showNotification('🚨 Lockdown Active', {
-        body: 'No major decisions. Do not jump to conclusions. Wait until you are regulated.',
-        icon: './icon-192.png',
-        requireInteraction: true,
-        tag: 'lockdown-notification',
-        vibrate: [200, 100, 200]
-      });
-    }
-
-  }
-
-  // Toggle Lockdown / Off
-  container.querySelector('#lockdown-btn')?.addEventListener('click', async () => {
-    const newState = currentLockdown === false ? true : false;
-    await setSetting('lockdown_active', newState);
-    await updateLockdownNotification(newState);
     renderToday(container);
   });
 }

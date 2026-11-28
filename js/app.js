@@ -1,11 +1,9 @@
 import { openDB } from './db.js';
 import { renderToday } from './views/today.js';
-import { renderLog } from './views/log.js';
 import { renderReflect } from './views/reflect.js';
-import { renderPlan } from './views/plan.js';
 import { renderInsights } from './views/insights.js';
 import { renderSettings } from './views/settings.js';
-import { renderMenu } from './views/menu.js';
+
 const main = document.getElementById('main-content');
 const navItems = document.querySelectorAll('.nav-item');
 
@@ -26,7 +24,6 @@ export function showToast(message) {
   }
   toast.textContent = message;
   clearTimeout(toastTimer);
-  // Force reflow to restart animation
   toast.classList.remove('show');
   void toast.offsetWidth;
   toast.classList.add('show');
@@ -36,12 +33,9 @@ export function showToast(message) {
 // ===== ROUTER =====
 const ROUTES = {
   '/': { render: renderToday, navId: 'nav-today' },
-  '/log': { render: (c, p) => renderLog(c, p), navId: 'nav-log' },
   '/reflect': { render: renderReflect, navId: 'nav-today' },
-  '/plan': { render: (c, p) => renderPlan(c, p), navId: 'nav-plan' },
   '/insights': { render: renderInsights, navId: 'nav-insights' },
-  '/menu': { render: renderMenu, navId: 'nav-menu' },
-  '/settings': { render: renderSettings, navId: 'nav-menu' },
+  '/settings': { render: renderSettings, navId: 'nav-settings' },
 };
 
 async function route() {
@@ -51,12 +45,10 @@ async function route() {
 
   const matched = ROUTES[path] || ROUTES['/'];
 
-  // Update nav
   navItems.forEach(item => {
     item.classList.toggle('active', item.id === matched.navId);
   });
 
-  // Render view
   try {
     await matched.render(main, params);
   } catch (err) {
@@ -69,7 +61,6 @@ async function route() {
     `;
   }
 
-  // Scroll to top
   main.scrollTo({ top: 0, behavior: 'instant' });
 }
 
@@ -84,16 +75,9 @@ function registerSW() {
 
 // ===== INIT =====
 async function init() {
-  // Open DB to initialize stores
   await openDB();
-
-  // Register service worker
   registerSW();
-
-  // Handle hash routing
   window.addEventListener('hashchange', route);
-
-  // Initial route
   await route();
 }
 

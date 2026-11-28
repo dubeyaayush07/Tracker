@@ -1,11 +1,11 @@
 {
   "name": "Daily Tracker",
   "short_name": "Tracker",
-  "description": "Track urges, energy, and schedule adherence to understand your daily patterns.",
+  "description": "Track daily reflections and worries to understand your patterns. A private, offline-first daily notebook.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0f0f0f",
-  "theme_color": "#0f0f0f",
+  "background_color": "#0d0d0f",
+  "theme_color": "#0d0d0f",
   "orientation": "portrait-primary",
   "icons": [
     {
